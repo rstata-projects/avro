@@ -17,15 +17,12 @@
  */
 package org.apache.avro.io.parsing;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.io.parquet.Parquet;
-import org.apache.avro.io.parsing.Symbol;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**

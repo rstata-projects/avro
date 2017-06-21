@@ -47,13 +47,13 @@ import org.apache.parquet.format.RowGroup;
  * file.
  */
 class Formatting {
-  private static byte[] MAGIC_NUMBER = { 'P', 'A', 'R', '1' };
+  private static final byte[] MAGIC_NUMBER = { 'P', 'A', 'R', '1' };
 
   /** For version field of file metadata.  Value taken from
    * org/apache/parquet/hadoop/ParquetFileWriter */
-  private static int VERSION = 1;
+  private static final int VERSION = 1;
 
-  private static String CREATED_BY
+  private static final String CREATED_BY
     = "avro version 0.8 (build 6cf94d29b2b7115df4de2c06e2ab4326d721eb55)";
 
   /** Convert from the Parquet.Encoding enumeration to the
