@@ -101,17 +101,12 @@ class Formatting {
     public final List<String> path;
     public final Type type;
 
-    // TODO: Move this into ChunkBuffer and ChunkInfo
-    public final List<Encoding> encodings;
-
     public ColumnInfo(String name,
                       Parquet.Type type, Parquet.Encoding encoding)
     {
       String[] path = { name };
-      Encoding[] encodings = { getEncoding(encoding) };
       this.path = Arrays.asList(path);
       this.type = getType(type);
-      this.encodings = Arrays.asList(encodings);
     }
   }
 
@@ -120,14 +115,20 @@ class Formatting {
     public final int valueCount;
     public final int uncompressedSize;
     public final int compressedSize;
+    public final List<Encoding> encodings;
 
     public ChunkInfo(long chunkOffset, int valueCount,
-                     int uncompressedSize, int compressedSize)
+                     int uncompressedSize, int compressedSize,
+                     List<Parquet.Encoding> encodings)
     {
       this.chunkOffset = chunkOffset;
       this.valueCount = valueCount;
       this.uncompressedSize = uncompressedSize;
       this.compressedSize = compressedSize;
+      this.encodings = new ArrayList<Encoding>(encodings.size());
+      for (Parquet.Encoding e: encodings) {
+        this.encodings.add(getEncoding(e));
+      }
     }
   }
 
@@ -158,7 +159,7 @@ class Formatting {
         ColumnChunk c = new ColumnChunk(chunkI.chunkOffset);
         // c.file_path = unsupported: Everything must be in same file
         c.meta_data
-          = new ColumnMetaData(colI.type, colI.encodings, colI.path,
+          = new ColumnMetaData(colI.type, chunkI.encodings, colI.path,
                                CompressionCodec.UNCOMPRESSED,
                                chunkI.valueCount,
                                chunkI.uncompressedSize,

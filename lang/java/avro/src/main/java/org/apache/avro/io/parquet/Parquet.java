@@ -137,7 +137,6 @@ public class Parquet implements Closeable {
       throws IOException
     {
       if (pb.hasDictionary()) {
-        // TODO: WRONG, must write to file ahead of writing the col-chunk data
         pb.writeDictPageTo(cb);
 
         // Seems like Parquet uses chunkOffset as dictionaryOffset as
@@ -151,7 +150,8 @@ public class Parquet implements Closeable {
 
       Formatting.ChunkInfo result =
         new Formatting.ChunkInfo(chunkOffset, cb.valueCount(),
-                                 cb.uncompressedSize(), cb.compressedSize());
+                                 cb.uncompressedSize(), cb.compressedSize(),
+                                 cb.encodings());
       pb.newChunk();
       cb.newChunk();
       return result;

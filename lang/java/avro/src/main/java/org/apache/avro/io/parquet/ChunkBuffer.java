@@ -35,9 +35,11 @@ class ChunkBuffer {
   private int pageCount;
   private int valueCount;
   private int compressedDelta;
+  public final List<Parquet.Encoding> encodings;
 
   public ChunkBuffer() {
     this.buf = new ByteArrayOutputStream(128*1024);
+    encodings = new ArrayList<Parquet.Encoding>(6);
     newChunk();
   }
 
@@ -62,7 +64,7 @@ class ChunkBuffer {
   {
     this.pageCount++;
     this.valueCount += valueCountDelta;
-    // TODO: maintain a list of encodings
+    this.encodings.add(encoding);
   }
 
   public int valueCount() { return this.valueCount; }
@@ -73,6 +75,8 @@ class ChunkBuffer {
     return this.compressedSize() + compressedDelta;
   }
 
+  public List<Parquet.Encoding> encodings() { return encodings; }
+
   public void writeTo(OutputStream out) throws IOException {
     buf.writeTo(out);
   }
@@ -82,6 +86,7 @@ class ChunkBuffer {
     pageCount = 0;
     valueCount = 0;
     compressedDelta = 0;
+    encodings.clear();
   }
 }
 
