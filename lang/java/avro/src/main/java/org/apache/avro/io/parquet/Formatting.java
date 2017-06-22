@@ -103,10 +103,12 @@ class Formatting {
     }
   }
 
+  // TODO: Decide whether or not to keep exposing parquet-format types
   public static class ColumnInfo {
     public final List<String> path;
     public final Type type;
     public final ConvertedType originalType;
+    public final Encoding encoding;
     public final Integer len;
 
     public ColumnInfo(String n, Parquet.Type t, Parquet.OriginalType ot,
@@ -116,6 +118,7 @@ class Formatting {
       this.path = Arrays.asList(path);
       this.type = getType(t);
       this.originalType = getConvertedType(ot);
+      this.encoding = getEncoding(e);
       this.len = len;
     }
   }

@@ -87,13 +87,13 @@ class PageBuffer extends Parquet.ColumnWriter {
 
   public void newChunk() throws IOException { data.newChunk(); }
 
-  public static PageBuffer get(Column c) {
-    switch (c.encoding) {
+  public static PageBuffer get(Formatting.ColumnInfo ci) {
+    switch (ci.encoding) {
     case PLAIN:
-      return new PageBuffer(PlainValueBuffer.get(c));
+      return new PageBuffer(PlainValueBuffer.get(ci));
 
     default:
-      throw new IllegalArgumentException("Upsupported encoding: "+c.encoding);
+      throw new IllegalArgumentException("Upsupported encoding: "+ci.encoding);
     }
   }
 }

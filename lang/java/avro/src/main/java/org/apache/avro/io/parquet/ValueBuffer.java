@@ -62,13 +62,13 @@ abstract class ValueBuffer {
 
   public void newChunk() throws IOException { }
 
-  public static ValueBuffer get(Column c) {
-    switch (c.encoding) {
+  public static ValueBuffer get(Formatting.ColumnInfo ci) {
+    switch (ci.encoding) {
     case PLAIN:
-      return PlainValueBuffer.get(c);
+      return PlainValueBuffer.get(ci);
 
     default:
-      throw new IllegalArgumentException("Upsupported encoding: "+c.encoding);
+      throw new IllegalArgumentException("Upsupported encoding: "+ci.encoding);
     }
   }
 }

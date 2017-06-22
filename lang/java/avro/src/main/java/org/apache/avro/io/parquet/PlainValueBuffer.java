@@ -56,8 +56,8 @@ abstract class PlainValueBuffer extends ValueBuffer {
     throw new UnsupportedOperationException("Not implemented yet.");
   }
 
-  public static PlainValueBuffer get(Column col) {
-    switch (col.type) {
+  public static PlainValueBuffer get(Formatting.ColumnInfo ci) {
+    switch (ci.type) {
     case INT32:
       return new PlainValueBuffer() {
         public void putInt(int i) {
@@ -102,11 +102,13 @@ abstract class PlainValueBuffer extends ValueBuffer {
         public int valueCount() { return valueCount; }
       };
 
-    case FIXED_LENGTH_BYTE_ARRAY:
-      return new PlainFixedValueBuffer(col.len);
+    case FIXED_LEN_BYTE_ARRAY:
+      if (ci.len == null)
+        throw new IllegalArgumentException("Null length for fixed array.");
+      return new PlainFixedValueBuffer(ci.len);
 
     default:
-      throw new IllegalArgumentException("Upsupported type: " + col.type);
+      throw new IllegalArgumentException("Upsupported type: " + ci.type);
     }
   }
 

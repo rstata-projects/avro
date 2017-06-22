@@ -29,7 +29,7 @@ import java.util.List;
 public class Parquet implements Closeable {
   public enum Type {
     BOOLEAN, INT32, INT64, INT96, FLOAT, DOUBLE, BYTE_ARRAY,
-    FIXED_LENGTH_BYTE_ARRAY,
+    FIXED_LEN_BYTE_ARRAY,
   };
 
   public enum OriginalType { UTF8 };
@@ -66,38 +66,45 @@ public class Parquet implements Closeable {
     this.rowsForNextSizeCheck = Math.min(100, rowsPerGroup);
   }
 
-  private ColumnWriter add(Column c) {
+  private ColumnWriter addColumn(String n,
+                                 Type t,
+                                 OriginalType ot,
+                                 Encoding e,
+                                 Integer len)
+  {
+    Formatting.ColumnInfo ci = new Formatting.ColumnInfo(n, t, ot, e, len);
+    this.colInfos.add(ci);
+    Column c = new Column(ci);
     this.cols.add(c);
-    this.colInfos.add(c.info);
     return c.getColumnWriter();
   }
 
   public ColumnWriter addIntColumn(String n, Encoding e) {
-    return add(new Column(n, Type.INT32, null, e, 0));
+    return addColumn(n, Type.INT32, null, e, 0);
   }
 
   public ColumnWriter addLongColumn(String n, Encoding e) {
-    return add(new Column(n, Type.INT64, null, e, 0));
+    return addColumn(n, Type.INT64, null, e, 0);
   }
 
   public ColumnWriter addFloatColumn(String n, Encoding e) {
-    return add(new Column(n, Type.FLOAT, null, e, 0));
+    return addColumn(n, Type.FLOAT, null, e, 0);
   }
 
   public ColumnWriter addDoubleColumn(String n, Encoding e) {
-    return add(new Column(n, Type.DOUBLE, null, e, 0));
+    return addColumn(n, Type.DOUBLE, null, e, 0);
   }
 
   public ColumnWriter addStringColumn(String n, Encoding e) {
-    return add(new Column(n, Type.BYTE_ARRAY, OriginalType.UTF8, e, 0));
+    return addColumn(n, Type.BYTE_ARRAY, OriginalType.UTF8, e, 0);
   }
 
   public ColumnWriter addBytesColumn(String n, Encoding e) {
-    return add(new Column(n, Type.BYTE_ARRAY, null, e, 0));
+    return addColumn(n, Type.BYTE_ARRAY, null, e, 0);
   }
 
   public ColumnWriter addFixedBytesColumn(String n, Encoding e, int len) {
-    return add(new Column(n, Type.FIXED_LENGTH_BYTE_ARRAY, null, e, len));
+    return addColumn(n, Type.FIXED_LEN_BYTE_ARRAY, null, e, len);
   }
 
   public void endRow() throws IOException {
@@ -106,17 +113,17 @@ public class Parquet implements Closeable {
       if (rowsPerGroup <= rowsThisGroup) {
         endRowGroup();
       } else {
-        flushFullPages();
+        sizeCheck();
       }
     }
   }
 
-  public void flushFullPages() throws IOException {
+  public void sizeCheck() throws IOException {
+    int delta = 100;
     for (Column c: cols) {
-      // TODO: flush only when getting full
-      c.flushPage();
+        delta = Math.min(delta, c.sizeCheck(rowsThisGroup));
     }
-    rowsForNextSizeCheck = Math.min(rowsPerGroup, 100+rowsForNextSizeCheck);
+    rowsForNextSizeCheck = Math.min(rowsPerGroup, delta+rowsForNextSizeCheck);
   }
 
   public void endRowGroup() throws IOException {
