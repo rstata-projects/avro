@@ -26,12 +26,6 @@ import java.io.OutputStream;
  * Page (v2) and Dictionary Pages (writing them into ChunkBuffers).
  */
 abstract class ValueBuffer {
-  /** TODO: Eventually, we'll need to keep track of three streams of
-   * data: the actual data values, plus the rep- and def-levels
-   * information.  To do this, we'll probably need to introduce
-   * another abstraction: ValuesBuffer.  A PageBuffer will then
-   * contain three ValueBuffers, one for each of the streams of data. */
-
   public void putInt(int i) throws IOException {
     throw new UnsupportedOperationException();
   }
@@ -45,6 +39,10 @@ abstract class ValueBuffer {
   }
 
   public void putDouble(double d) throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  public void putBytes(byte[] b, int start, int len) throws IOException {
     throw new UnsupportedOperationException();
   }
 

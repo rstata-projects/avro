@@ -18,18 +18,15 @@
 package org.apache.avro.io.parsing;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.io.parquet.Parquet;
-import org.apache.avro.io.parsing.Symbol;
 
 
 /**
- * The class that generates validating grammar.
+ * Generates grammars to be used by ParquetEncoder.
  */
 public class ParquetGrammarGenerator {
   /**
@@ -55,27 +52,28 @@ public class ParquetGrammarGenerator {
       switch (f.schema().getType()) {
       case INT:
         term = Symbol.INT;
-        Parquet.Column.Int ic = new Parquet.Column.Int(fn, e);
-        col = ic;
-        action = new FieldWriteAction<Parquet.Column.Int>(ic);
+        action = FieldWriteAction.build(fn, Parquet.Type.INT32, null, e);
         break;
       case LONG:
         term = Symbol.LONG;
-        Parquet.Column.Long lc = new Parquet.Column.Long(fn, e);
-        col = lc;
-        action = new FieldWriteAction<Parquet.Column.Long>(lc);
+        action = FieldWriteAction.build(fn, Parquet.Type.INT64, null, e);
         break;
       case FLOAT:
         term = Symbol.FLOAT;
-        Parquet.Column.Float fc = new Parquet.Column.Float(fn, e);
-        col = fc;
-        action = new FieldWriteAction<Parquet.Column.Float>(fc);
+        action = FieldWriteAction.build(fn, Parquet.Type.FLOAT, null, e);
         break;
       case DOUBLE:
         term = Symbol.DOUBLE;
-        Parquet.Column.Double dc = new Parquet.Column.Double(fn, e);
-        col = dc;
-        action = new FieldWriteAction<Parquet.Column.Double>(dc);
+        action = FieldWriteAction.build(fn, Parquet.Type.DOUBLE, null, e);
+        break;
+      case BYTES:
+        term = Symbol.BYTES;
+        action = FieldWriteAction.build(fn,Parquet.Type.BYTE_ARRAY,null,e);
+        break;
+      case STRING:
+        term = Symbol.STRING;
+        action = FieldWriteAction.build(fn, Parquet.Type.BYTE_ARRAY,
+                                        Parquet.OriginalType.UTF8, e);
         break;
       default:
         throw new IllegalArgumentException("Unsupported subschema: "
@@ -83,7 +81,7 @@ public class ParquetGrammarGenerator {
       }
       production[--i] = term;
       production[--i] = action;
-      writer.add(col);
+      writer.add((Parquet.Column)((FieldWriteAction)action).col);
     }
     production[--i] = ROW_END;
 
@@ -100,6 +98,36 @@ public class ParquetGrammarGenerator {
     FieldWriteAction(T col) {
       super(Kind.EXPLICIT_ACTION);
       this.col = col;
+    }
+
+    static public Symbol build(String n,
+                               Parquet.Type t,
+                               Parquet.OriginalType ot,
+                               Parquet.Encoding e)
+    {
+      switch (t) {
+      case INT32:
+          Parquet.Column.Int ic = new Parquet.Column.Int(n, ot, e);
+          return new FieldWriteAction<Parquet.Column.Int>(ic);
+      case INT64:
+          Parquet.Column.Long lc = new Parquet.Column.Long(n, ot, e);
+          return new FieldWriteAction<Parquet.Column.Long>(lc);
+      case FLOAT:
+          Parquet.Column.Float fc = new Parquet.Column.Float(n, ot, e);
+          return new FieldWriteAction<Parquet.Column.Float>(fc);
+      case DOUBLE:
+          Parquet.Column.Double dc = new Parquet.Column.Double(n, ot, e);
+          return new FieldWriteAction<Parquet.Column.Double>(dc);
+      case BYTE_ARRAY:
+          Parquet.Column.Bytes bc = new Parquet.Column.Bytes(n, ot, e);
+          return new FieldWriteAction<Parquet.Column.Bytes>(bc);
+
+      case BOOLEAN:
+      case INT96:
+      case FIXED_LENGTH_BYTE_ARRAY:
+      default:
+          throw new IllegalArgumentException("Bad type: " + t);
+      }
     }
   }
 }

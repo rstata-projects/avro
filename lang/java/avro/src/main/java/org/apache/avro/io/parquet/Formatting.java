@@ -25,6 +25,7 @@ import java.util.List;
 
 // General-purpose
 import org.apache.parquet.format.CompressionCodec;
+import org.apache.parquet.format.ConvertedType;
 import org.apache.parquet.format.Encoding;
 import org.apache.parquet.format.FieldRepetitionType;
 import org.apache.parquet.format.SchemaElement;
@@ -36,24 +37,25 @@ import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 
-// Related to File and Row-Group metadata
+// Related to Row Groups
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
-import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.RowGroup;
+
+import org.apache.parquet.format.FileMetaData;
 
 /**
  * The class handles encoding of the non-column data to a Parquet
  * file.
  */
 class Formatting {
-  private static byte[] MAGIC_NUMBER = { 'P', 'A', 'R', '1' };
+  private static final byte[] MAGIC_NUMBER = { 'P', 'A', 'R', '1' };
 
   /** For version field of file metadata.  Value taken from
    * org/apache/parquet/hadoop/ParquetFileWriter */
-  private static int VERSION = 1;
+  private static final int VERSION = 1;
 
-  private static String CREATED_BY
+  private static final String CREATED_BY
     = "avro version 0.8 (build 6cf94d29b2b7115df4de2c06e2ab4326d721eb55)";
 
   /** Convert from the Parquet.Encoding enumeration to the
@@ -64,6 +66,10 @@ class Formatting {
 
   public static Type getType(Parquet.Type type) {
     return Type.valueOf(type.name());
+  }
+
+  public static ConvertedType getConvertedType(Parquet.OriginalType type) {
+    return ConvertedType.valueOf(type.name());
   }
 
   public static CompressionCodec getType(Parquet.CompressionCodec codec) {
@@ -100,28 +106,32 @@ class Formatting {
   public static class ColumnInfo {
     public final List<String> path;
     public final Type type;
+    public final ConvertedType originalType;
 
-    public ColumnInfo(String name,
-                      Parquet.Type type, Parquet.Encoding encoding)
+    public ColumnInfo(String n, Parquet.Type t, Parquet.OriginalType ot,
+                      Parquet.Encoding e)
     {
-      String[] path = { name };
+      String[] path = { n };
       this.path = Arrays.asList(path);
-      this.type = getType(type);
+      this.type = getType(t);
+      this.originalType = getConvertedType(ot);
     }
   }
 
   public static class ChunkInfo {
     public final long chunkOffset;
+    public final long firstDataPageOffset;
     public final int valueCount;
     public final int uncompressedSize;
     public final int compressedSize;
     public final List<Encoding> encodings;
 
-    public ChunkInfo(long chunkOffset, int valueCount,
-                     int uncompressedSize, int compressedSize,
+      public ChunkInfo(long chunkOffset, long firstDataPageOffset,
+                     int valueCount, int uncompressedSize, int compressedSize,
                      List<Parquet.Encoding> encodings)
     {
       this.chunkOffset = chunkOffset;
+      this.firstDataPageOffset = firstDataPageOffset;
       this.valueCount = valueCount;
       this.uncompressedSize = uncompressedSize;
       this.compressedSize = compressedSize;
@@ -151,13 +161,26 @@ class Formatting {
     List<RowGroup> groups = new ArrayList<RowGroup>(rows.size());
     long totalRowCount = 0;
     for (RowInfo ri: rows) {
-      long byteCount = 0;
+      long rgByteSize = 0;
       List<ColumnChunk> chunks = new ArrayList<ColumnChunk>(ri.cols.size());
       for (int i = 0; i < cols.size(); i++) {
         ColumnInfo colI = cols.get(i);
         ChunkInfo chunkI = ri.cols.get(i);
+
+        // Accourding to both the RowGroup definition in
+        // parquet.thrift and also ParquetFileWriter.currentBlock, the
+        // total_byte_size field of row-group metadata holds the
+        // uncompressed size of a row group.
+        rgByteSize += chunkI.uncompressedSize;
+
         ColumnChunk c = new ColumnChunk(chunkI.chunkOffset);
-        // c.file_path = unsupported: Everything must be in same file
+        chunks.add(c);
+        // c.file_path: leave blank: everything must be in same file
+
+        // Looking at ColumnChunkPageWriteStore.writeToFileWriter and
+        // the calls it makes to ParquetFileWriter, it seems like
+        // dictionary and firstData page offsets both get set to the
+        // start of the chunk:
         c.meta_data
           = new ColumnMetaData(colI.type, chunkI.encodings, colI.path,
                                CompressionCodec.UNCOMPRESSED,
@@ -166,19 +189,12 @@ class Formatting {
                                chunkI.compressedSize,
                                chunkI.chunkOffset);
 
-        // Looking at ColumnChunkPageWriteStore.writeToFileWriter and
-        // the calls it makes to ParquetFileWriter, it seems like
-        // dictionary and firstData page offsets get set to the same.
         // Looking at ParquetMetadataConverter.addRowGroup, the
         // dictionary_page_offset of column metadata is always set,
-        // even if there isn't a dictionary.  So this mimics the
-        // observed logic:
+        // even if there isn't a dictionary:
         c.meta_data.dictionary_page_offset = chunkI.chunkOffset;
-
-        chunks.add(c);
-        byteCount += chunkI.uncompressedSize; // TODO: Right thing to add?
       }
-      RowGroup rg = new RowGroup(chunks, byteCount, ri.rowCount);
+      RowGroup rg = new RowGroup(chunks, rgByteSize, ri.rowCount);
       groups.add(rg);
       totalRowCount += ri.rowCount;
     }
@@ -210,6 +226,9 @@ class Formatting {
         SchemaElement e = new SchemaElement(ci.path.get(0));
         e.setRepetition_type(FieldRepetitionType.REQUIRED);
         e.setType(ci.type);
+        if (ci.originalType != null) {
+          e.setConverted_type(ci.originalType);
+        }
         result.add(e);
     }
     return result;

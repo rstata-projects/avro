@@ -18,6 +18,7 @@
 package org.apache.avro.io.parquet;
 
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * Responsibilities: memory-management for page buffer (delegated to
@@ -53,6 +54,10 @@ class PageBuffer {
     data.putDouble(d);
   }
 
+  public void putBytes(byte[] b, int start, int len) throws IOException {
+    data.putBytes(b, start, len);
+  }
+
   /** Create a DataPage (v2) entry in <code>cb</code> for values
    * in <code>this</code>. */
   public void writeDataPageTo(ChunkBuffer cb) throws IOException {
@@ -72,7 +77,7 @@ class PageBuffer {
     cb.registerPageInfo(valueCount, encoding);
   }
 
-  public void writeDictPageTo(ChunkBuffer cb) throws IOException {
+  public int writeDictPageTo(OutputStream out) throws IOException {
     throw new UnsupportedOperationException("Not implemented yet.");
   }
 

@@ -29,7 +29,7 @@ import java.util.List;
  * chunk-wide information/statistics.
  */
 class ChunkBuffer {
-  /** TODO: replace with something more performant. */
+  /** TODO: use something like Parquet's CapacityByteArrayOutputStream */
   private ByteArrayOutputStream buf;
 
   private int pageCount;

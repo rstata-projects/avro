@@ -96,26 +96,33 @@ public class ParquetEncoder extends ParsingEncoder
 
   @Override
   public void writeString(Utf8 utf8) throws IOException {
-    throw new UnsupportedOperationException();
+    this.writeBytes(utf8.getBytes(), 0, utf8.getByteLength());
   }
 
   @Override
-  public void writeString(String str) throws IOException {
-    throw new UnsupportedOperationException();
+  public void writeString(String string) throws IOException {
+    byte[] bytes = null;
+    if (0 < string.length()) {
+      bytes = string.getBytes("UTF-8");
+    }
+    writeBytes(bytes, 0, bytes.length);
   }
 
   @Override
   public void writeBytes(ByteBuffer bytes) throws IOException {
-    throw new UnsupportedOperationException();
+    int pos = bytes.position();
+    int len = bytes.limit() - pos;
+    if (bytes.hasArray()) {
+      writeBytes(bytes.array(), bytes.arrayOffset() + pos, len);
+    } else {
+      byte[] b = new byte[len];
+      bytes.duplicate().get(b, 0, len);
+      writeBytes(b, 0, len);
+    }
   }
 
   @Override
   public void writeBytes(byte[] bytes, int start, int len) throws IOException {
-    throw new UnsupportedOperationException();
-  }
-
-  private void writeByteArray(byte[] bytes, int start, int len)
-    throws IOException {
     throw new UnsupportedOperationException();
   }
 

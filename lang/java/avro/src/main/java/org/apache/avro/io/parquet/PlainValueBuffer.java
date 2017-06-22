@@ -30,8 +30,6 @@ abstract class PlainValueBuffer extends ValueBuffer {
     this.buf.order(ByteOrder.LITTLE_ENDIAN);
   }
 
-  protected abstract int valueSize();
-
   public int valueCount() {
     return buf.position()/valueSize();
   }
@@ -39,6 +37,8 @@ abstract class PlainValueBuffer extends ValueBuffer {
   public int byteCount() {
     return buf.position();
   }
+
+  public abstract int valueSize();
 
   public Parquet.Encoding encoding() {
     return Parquet.Encoding.PLAIN;
@@ -88,6 +88,18 @@ abstract class PlainValueBuffer extends ValueBuffer {
           this.buf.putDouble(d);
         }
         public int valueSize() { return 8; }
+      };
+
+    case BYTE_ARRAY:
+      return new PlainValueBuffer() {
+        private int valueCount;
+        public void putBytes(byte[] b, int start, int len) {
+          this.buf.putInt(len);
+          this.buf.put(b, start, len);
+          valueCount++;
+        }
+        public int valueSize() { throw new UnsupportedOperationException(); }
+        public int valueCount() { return valueCount; }
       };
 
     default:

@@ -17,12 +17,10 @@
  */
 package org.apache.avro.io.parquet;
 
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -33,6 +31,8 @@ public class Parquet implements Closeable {
     BOOLEAN, INT32, INT64, INT96, FLOAT, DOUBLE, BYTE_ARRAY,
     FIXED_LENGTH_BYTE_ARRAY,
   };
+
+  public enum OriginalType { UTF8 };
 
   public enum Encoding {
     PLAIN, UNUSED, PLAIN_DICTIONARY, RLE, BIT_PACKED,
@@ -116,16 +116,18 @@ public class Parquet implements Closeable {
   static public abstract class Column {
     final String name;
     final Type type;
+    final OriginalType originalType;
     final Formatting.ColumnInfo info;
     final PageBuffer pb;
     final ChunkBuffer cb;
 
-    protected Column(String name, Type type, Encoding encoding) {
-      this.name = name;
-      this.type = type;
-      this.pb = PageBuffer.get(type, encoding);
+    protected Column(String n, Type t, OriginalType ot, Encoding e) {
+      this.name = n;
+      this.type = t;
+      this.originalType = ot;
+      this.pb = PageBuffer.get(t, e);
       this.cb = new ChunkBuffer();
-      this.info = new Formatting.ColumnInfo(name, type, encoding);
+      this.info = new Formatting.ColumnInfo(name, t, ot, e);
     }
 
     public void flushPage() throws IOException {
@@ -136,30 +138,26 @@ public class Parquet implements Closeable {
     public Formatting.ChunkInfo writeChunk(OutputStream out, long chunkOffset)
       throws IOException
     {
-      if (pb.hasDictionary()) {
-        pb.writeDictPageTo(cb);
-
-        // Seems like Parquet uses chunkOffset as dictionaryOffset as
-        // well as firstDataPageOffset.  See comment in
-        // Formatting.writeFooter.  If this isn't always true, we can
-        // figure out the right first-data-page offset by adding the
-        // size of what we wrote above to chunkOffset.
-      }
       flushPage();
+      int dictLen = 0;
+      if (pb.hasDictionary()) {
+        dictLen = pb.writeDictPageTo(out);
+      }
       cb.writeTo(out);
 
       Formatting.ChunkInfo result =
-        new Formatting.ChunkInfo(chunkOffset, cb.valueCount(),
-                                 cb.uncompressedSize(), cb.compressedSize(),
-                                 cb.encodings());
+          new Formatting.ChunkInfo(chunkOffset, chunkOffset+dictLen,
+                                   cb.valueCount(),
+                                   cb.uncompressedSize(), cb.compressedSize(),
+                                   cb.encodings());
       pb.newChunk();
       cb.newChunk();
       return result;
     }
 
     public static class Int extends Column {
-      public Int(String name, Encoding e) {
-        super(name, Type.INT32, e);
+      public Int(String name, OriginalType ot, Encoding e) {
+        super(name, Type.INT32, ot, e);
       }
 
       public void write(int i) throws IOException {
@@ -168,8 +166,8 @@ public class Parquet implements Closeable {
     }
 
     public static class Long extends Column {
-      public Long(String name, Encoding e) {
-        super(name, Type.INT64, e);
+      public Long(String name, OriginalType ot, Encoding e) {
+        super(name, Type.INT64, ot, e);
       }
 
       public void write(long l) throws IOException {
@@ -178,8 +176,8 @@ public class Parquet implements Closeable {
     }
 
     public static class Float extends Column {
-      public Float(String name, Encoding e) {
-        super(name, Type.FLOAT, e);
+      public Float(String name, OriginalType ot, Encoding e) {
+        super(name, Type.FLOAT, ot, e);
       }
 
       public void write(float f) throws IOException {
@@ -188,12 +186,22 @@ public class Parquet implements Closeable {
     }
 
     public static class Double extends Column {
-      public Double(String name, Encoding e) {
-        super(name, Type.DOUBLE, e);
+      public Double(String name, OriginalType ot, Encoding e) {
+        super(name, Type.DOUBLE, ot, e);
       }
 
       public void writeDouble(double d) throws IOException {
         pb.putDouble(d);
+      }
+    }
+
+    public static class Bytes extends Column {
+      public Bytes(String name, OriginalType ot, Encoding e) {
+        super(name, Type.BYTE_ARRAY, ot, e);
+      }
+
+      public void writeBytes(byte[] b, int start, int len) throws IOException {
+        pb.putBytes(b, start, len);
       }
     }
   }
