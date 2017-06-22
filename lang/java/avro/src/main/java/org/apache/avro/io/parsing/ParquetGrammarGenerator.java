@@ -52,33 +52,36 @@ public class ParquetGrammarGenerator {
       switch (f.schema().getType()) {
       case INT:
         term = Symbol.INT;
-        action = FieldWriteAction.build(fn, Parquet.Type.INT32, null, e);
+        action = FieldWriteAction.build(fn, Parquet.Type.INT32, null, e, 0);
         break;
       case LONG:
         term = Symbol.LONG;
-        action = FieldWriteAction.build(fn, Parquet.Type.INT64, null, e);
+        action = FieldWriteAction.build(fn, Parquet.Type.INT64, null, e, 0);
         break;
       case FLOAT:
         term = Symbol.FLOAT;
-        action = FieldWriteAction.build(fn, Parquet.Type.FLOAT, null, e);
+        action = FieldWriteAction.build(fn, Parquet.Type.FLOAT, null, e, 0);
         break;
       case DOUBLE:
         term = Symbol.DOUBLE;
-        action = FieldWriteAction.build(fn, Parquet.Type.DOUBLE, null, e);
+        action = FieldWriteAction.build(fn, Parquet.Type.DOUBLE, null, e, 0);
         break;
       case BYTES:
         term = Symbol.BYTES;
-        action = FieldWriteAction.build(fn,Parquet.Type.BYTE_ARRAY,null,e);
+        action = FieldWriteAction.build(fn,Parquet.Type.BYTE_ARRAY, null,
+                                        e, 0);
         break;
       case STRING:
         term = Symbol.STRING;
         action = FieldWriteAction.build(fn, Parquet.Type.BYTE_ARRAY,
-                                        Parquet.OriginalType.UTF8, e);
+                                        Parquet.OriginalType.UTF8, e, 0);
         break;
       case FIXED:
         term = Symbol.FIXED;
-        action = FieldWriteAction.build(fn,Parquet.Type.FIXED_LENGTHBYTE_ARRAY,
-                                        null, e);
+        int len = f.schema().getFixedSize();
+        action = FieldWriteAction.build(fn,
+                                        Parquet.Type.FIXED_LENGTH_BYTE_ARRAY,
+                                        null, e, len);
         break;
       default:
         throw new IllegalArgumentException("Unsupported subschema: "
@@ -108,7 +111,8 @@ public class ParquetGrammarGenerator {
     static public Symbol build(String n,
                                Parquet.Type t,
                                Parquet.OriginalType ot,
-                               Parquet.Encoding e)
+                               Parquet.Encoding e,
+                               int len)
     {
       switch (t) {
       case INT32:
@@ -127,12 +131,9 @@ public class ParquetGrammarGenerator {
           Parquet.Column.Bytes bc = new Parquet.Column.Bytes(n, ot, e);
           return new FieldWriteAction<Parquet.Column.Bytes>(bc);
       case FIXED_LENGTH_BYTE_ARRAY:
-          Parquet.Column.FixedBytes flc= new Parquet.Column.FixedBytes(n,ot,e);
+          Parquet.Column.FixedBytes flc= new Parquet.Column.FixedBytes(n,ot,
+                                                                       e, len);
           return new FieldWriteAction<Parquet.Column.FixedBytes>(flc);
-
-      case BOOLEAN:
-      case INT96:
-      case FIXED_LENGTH_BYTE_ARRAY:
       default:
           throw new IllegalArgumentException("Bad type: " + t);
       }

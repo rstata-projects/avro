@@ -106,11 +106,11 @@ abstract class PlainValueBuffer extends ValueBuffer {
       return new PlainFixedValueBuffer(col.len);
 
     default:
-      throw new IllegalArgumentException("Upsupported type: " + type);
+      throw new IllegalArgumentException("Upsupported type: " + col.type);
     }
   }
 
-  private static class PlainFixedValueBuffer {
+  private static class PlainFixedValueBuffer extends PlainValueBuffer {
     private int valueSize;
     PlainFixedValueBuffer(int len) {
       this.valueSize = len;

@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 import org.apache.avro.Schema;
+import org.apache.avro.AvroTypeException;
 import org.apache.avro.io.parquet.Parquet;
 import org.apache.avro.io.parquet.Parquet.Column;
 import org.apache.avro.io.parsing.Parser;
@@ -130,8 +131,7 @@ public class ParquetEncoder extends ParsingEncoder
     doBytes(bytes, 0, len);
   }
 
-  @Override
-  public void doBytes(byte[] bytes, int start, int len) throws IOException {
+  private void doBytes(byte[] bytes, int start, int len) throws IOException {
     FieldWriteAction<Column.Bytes> top
       = (FieldWriteAction<Column.Bytes>) parser.popSymbol();
     top.col.write(bytes, start, len);
@@ -145,7 +145,7 @@ public class ParquetEncoder extends ParsingEncoder
     if (len != top.col.len) {
       throw new AvroTypeException(
         "Incorrect length for fixed binary: expected " +
-        top.size + " but received " + len + " bytes.");
+        top.col.len + " but received " + len + " bytes.");
     }
     top.col.write(bytes, start);
   }

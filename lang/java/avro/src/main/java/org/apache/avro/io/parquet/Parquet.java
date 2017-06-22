@@ -117,10 +117,11 @@ public class Parquet implements Closeable {
     public final String name;
     public final Type type;
     public final OriginalType originalType;
+    public final Encoding encoding;
     public final Integer len;
-    private final Formatting.ColumnInfo info;
-    private final PageBuffer pb;
-    private final ChunkBuffer cb;
+    protected final Formatting.ColumnInfo info;
+    protected final PageBuffer pb;
+    protected final ChunkBuffer cb;
 
     protected Column(String n, Type t, OriginalType ot,
                      Encoding e, Integer len)
@@ -128,6 +129,7 @@ public class Parquet implements Closeable {
       this.name = n;
       this.type = t;
       this.originalType = ot;
+      this.encoding = e;
       this.len = len;
       this.pb = PageBuffer.get(this);
       this.cb = new ChunkBuffer();
@@ -165,7 +167,7 @@ public class Parquet implements Closeable {
       }
 
       public void write(int i) throws IOException {
-        pb.putInt(i);
+        this.pb.putInt(i);
       }
     }
 
@@ -175,7 +177,7 @@ public class Parquet implements Closeable {
       }
 
       public void write(long l) throws IOException {
-        pb.putLong(l);
+        this.pb.putLong(l);
       }
     }
 
@@ -185,7 +187,7 @@ public class Parquet implements Closeable {
       }
 
       public void write(float f) throws IOException {
-        pb.putFloat(f);
+        this.pb.putFloat(f);
       }
     }
 
@@ -195,7 +197,7 @@ public class Parquet implements Closeable {
       }
 
       public void write(double d) throws IOException {
-        pb.putDouble(d);
+        this.pb.putDouble(d);
       }
     }
 
@@ -205,7 +207,7 @@ public class Parquet implements Closeable {
       }
 
       public void write(byte[] b, int start, int len) throws IOException {
-        pb.putBytes(b, start, len);
+        this.pb.putBytes(b, start, len);
       }
     }
 
@@ -216,7 +218,7 @@ public class Parquet implements Closeable {
         this.len = len;
       }
       public void write(byte[] b, int start) throws IOException {
-        pb.putFixedBytes(b, start, len);
+        this.pb.putBytes(b, start, len);
       }
     }
   }

@@ -62,13 +62,13 @@ abstract class ValueBuffer {
 
   public void newChunk() throws IOException { }
 
-  public static ValueBuffer get(Parquet.Type t, Parquet.Encoding e) {
-    switch (e) {
+  public static ValueBuffer get(Parquet.Column c) {
+    switch (c.encoding) {
     case PLAIN:
-      return PlainValueBuffer.get(t);
+      return PlainValueBuffer.get(c);
 
     default:
-      throw new IllegalArgumentException("Upsupported encoding: " + e);
+      throw new IllegalArgumentException("Upsupported encoding: "+c.encoding);
     }
   }
 }
