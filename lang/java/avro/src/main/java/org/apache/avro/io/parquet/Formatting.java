@@ -107,14 +107,16 @@ class Formatting {
     public final List<String> path;
     public final Type type;
     public final ConvertedType originalType;
+    public final Integer len;
 
     public ColumnInfo(String n, Parquet.Type t, Parquet.OriginalType ot,
-                      Parquet.Encoding e)
+                      Parquet.Encoding e, Integer len)
     {
       String[] path = { n };
       this.path = Arrays.asList(path);
       this.type = getType(t);
       this.originalType = getConvertedType(ot);
+      this.len = len;
     }
   }
 

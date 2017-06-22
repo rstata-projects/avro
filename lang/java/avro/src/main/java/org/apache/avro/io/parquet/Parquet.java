@@ -114,20 +114,24 @@ public class Parquet implements Closeable {
 
 
   static public abstract class Column {
-    final String name;
-    final Type type;
-    final OriginalType originalType;
-    final Formatting.ColumnInfo info;
-    final PageBuffer pb;
-    final ChunkBuffer cb;
+    public final String name;
+    public final Type type;
+    public final OriginalType originalType;
+    public final Integer len;
+    private final Formatting.ColumnInfo info;
+    private final PageBuffer pb;
+    private final ChunkBuffer cb;
 
-    protected Column(String n, Type t, OriginalType ot, Encoding e) {
+    protected Column(String n, Type t, OriginalType ot,
+                     Encoding e, Integer len)
+    {
       this.name = n;
       this.type = t;
       this.originalType = ot;
-      this.pb = PageBuffer.get(t, e);
+      this.len = len;
+      this.pb = PageBuffer.get(this);
       this.cb = new ChunkBuffer();
-      this.info = new Formatting.ColumnInfo(name, t, ot, e);
+      this.info = new Formatting.ColumnInfo(name, t, ot, e, len);
     }
 
     public void flushPage() throws IOException {
@@ -157,7 +161,7 @@ public class Parquet implements Closeable {
 
     public static class Int extends Column {
       public Int(String name, OriginalType ot, Encoding e) {
-        super(name, Type.INT32, ot, e);
+        super(name, Type.INT32, ot, e, null);
       }
 
       public void write(int i) throws IOException {
@@ -167,7 +171,7 @@ public class Parquet implements Closeable {
 
     public static class Long extends Column {
       public Long(String name, OriginalType ot, Encoding e) {
-        super(name, Type.INT64, ot, e);
+        super(name, Type.INT64, ot, e, null);
       }
 
       public void write(long l) throws IOException {
@@ -177,7 +181,7 @@ public class Parquet implements Closeable {
 
     public static class Float extends Column {
       public Float(String name, OriginalType ot, Encoding e) {
-        super(name, Type.FLOAT, ot, e);
+        super(name, Type.FLOAT, ot, e, null);
       }
 
       public void write(float f) throws IOException {
@@ -187,21 +191,32 @@ public class Parquet implements Closeable {
 
     public static class Double extends Column {
       public Double(String name, OriginalType ot, Encoding e) {
-        super(name, Type.DOUBLE, ot, e);
+        super(name, Type.DOUBLE, ot, e, null);
       }
 
-      public void writeDouble(double d) throws IOException {
+      public void write(double d) throws IOException {
         pb.putDouble(d);
       }
     }
 
     public static class Bytes extends Column {
       public Bytes(String name, OriginalType ot, Encoding e) {
-        super(name, Type.BYTE_ARRAY, ot, e);
+        super(name, Type.BYTE_ARRAY, ot, e, null);
       }
 
-      public void writeBytes(byte[] b, int start, int len) throws IOException {
+      public void write(byte[] b, int start, int len) throws IOException {
         pb.putBytes(b, start, len);
+      }
+    }
+
+    public static class FixedBytes extends Column {
+      public final int len;
+      public FixedBytes(String name, OriginalType ot, Encoding e, int len) {
+        super(name, Type.FIXED_LENGTH_BYTE_ARRAY, ot, e, len);
+        this.len = len;
+      }
+      public void write(byte[] b, int start) throws IOException {
+        pb.putFixedBytes(b, start, len);
       }
     }
   }

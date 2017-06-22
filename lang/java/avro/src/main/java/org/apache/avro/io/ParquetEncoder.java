@@ -91,25 +91,28 @@ public class ParquetEncoder extends ParsingEncoder
     parser.advance(Symbol.DOUBLE);
     FieldWriteAction<Column.Double> top
       = (FieldWriteAction<Column.Double>) parser.popSymbol();
-    top.col.writeDouble(d);
+    top.col.write(d);
   }
 
   @Override
   public void writeString(Utf8 utf8) throws IOException {
-    this.writeBytes(utf8.getBytes(), 0, utf8.getByteLength());
+    parser.advance(Symbol.STRING);
+    doBytes(utf8.getBytes(), 0, utf8.getByteLength());
   }
 
   @Override
   public void writeString(String string) throws IOException {
+    parser.advance(Symbol.STRING);
     byte[] bytes = null;
     if (0 < string.length()) {
       bytes = string.getBytes("UTF-8");
     }
-    writeBytes(bytes, 0, bytes.length);
+    doBytes(bytes, 0, bytes.length);
   }
 
   @Override
   public void writeBytes(ByteBuffer bytes) throws IOException {
+    parser.advance(Symbol.BYTES);
     int pos = bytes.position();
     int len = bytes.limit() - pos;
     if (bytes.hasArray()) {
@@ -117,18 +120,34 @@ public class ParquetEncoder extends ParsingEncoder
     } else {
       byte[] b = new byte[len];
       bytes.duplicate().get(b, 0, len);
-      writeBytes(b, 0, len);
+      doBytes(b, 0, len);
     }
   }
 
   @Override
   public void writeBytes(byte[] bytes, int start, int len) throws IOException {
-    throw new UnsupportedOperationException();
+    parser.advance(Symbol.BYTES);
+    doBytes(bytes, 0, len);
+  }
+
+  @Override
+  public void doBytes(byte[] bytes, int start, int len) throws IOException {
+    FieldWriteAction<Column.Bytes> top
+      = (FieldWriteAction<Column.Bytes>) parser.popSymbol();
+    top.col.write(bytes, start, len);
   }
 
   @Override
   public void writeFixed(byte[] bytes, int start, int len) throws IOException {
-    throw new UnsupportedOperationException();
+    parser.advance(Symbol.FIXED);
+    FieldWriteAction<Column.FixedBytes> top
+      = (FieldWriteAction<Column.FixedBytes>) parser.popSymbol();
+    if (len != top.col.len) {
+      throw new AvroTypeException(
+        "Incorrect length for fixed binary: expected " +
+        top.size + " but received " + len + " bytes.");
+    }
+    top.col.write(bytes, start);
   }
 
   @Override

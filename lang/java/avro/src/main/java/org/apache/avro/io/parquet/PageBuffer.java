@@ -87,13 +87,13 @@ class PageBuffer {
 
   public void newChunk() throws IOException { data.newChunk(); }
 
-  public static PageBuffer get(Parquet.Type t, Parquet.Encoding e) {
-    switch (e) {
+  public static PageBuffer get(Parquet.Column c) {
+    switch (c.encoding) {
     case PLAIN:
-      return new PageBuffer(PlainValueBuffer.get(t));
+      return new PageBuffer(PlainValueBuffer.get(c));
 
     default:
-      throw new IllegalArgumentException("Upsupported encoding: " + e);
+      throw new IllegalArgumentException("Upsupported encoding: "+c.encoding);
     }
   }
 }

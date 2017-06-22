@@ -75,6 +75,11 @@ public class ParquetGrammarGenerator {
         action = FieldWriteAction.build(fn, Parquet.Type.BYTE_ARRAY,
                                         Parquet.OriginalType.UTF8, e);
         break;
+      case FIXED:
+        term = Symbol.FIXED;
+        action = FieldWriteAction.build(fn,Parquet.Type.FIXED_LENGTHBYTE_ARRAY,
+                                        null, e);
+        break;
       default:
         throw new IllegalArgumentException("Unsupported subschema: "
                                            + schema.getType());
@@ -121,6 +126,9 @@ public class ParquetGrammarGenerator {
       case BYTE_ARRAY:
           Parquet.Column.Bytes bc = new Parquet.Column.Bytes(n, ot, e);
           return new FieldWriteAction<Parquet.Column.Bytes>(bc);
+      case FIXED_LENGTH_BYTE_ARRAY:
+          Parquet.Column.FixedBytes flc= new Parquet.Column.FixedBytes(n,ot,e);
+          return new FieldWriteAction<Parquet.Column.FixedBytes>(flc);
 
       case BOOLEAN:
       case INT96:

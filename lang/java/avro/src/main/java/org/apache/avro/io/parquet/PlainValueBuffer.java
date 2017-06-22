@@ -56,8 +56,8 @@ abstract class PlainValueBuffer extends ValueBuffer {
     throw new UnsupportedOperationException("Not implemented yet.");
   }
 
-  public static PlainValueBuffer get(Parquet.Type type) {
-    switch (type) {
+  public static PlainValueBuffer get(Parquet.Column col) {
+    switch (col.type) {
     case INT32:
       return new PlainValueBuffer() {
         public void putInt(int i) {
@@ -102,8 +102,24 @@ abstract class PlainValueBuffer extends ValueBuffer {
         public int valueCount() { return valueCount; }
       };
 
+    case FIXED_LENGTH_BYTE_ARRAY:
+      return new PlainFixedValueBuffer(col.len);
+
     default:
       throw new IllegalArgumentException("Upsupported type: " + type);
     }
+  }
+
+  private static class PlainFixedValueBuffer {
+    private int valueSize;
+    PlainFixedValueBuffer(int len) {
+      this.valueSize = len;
+    }
+
+    public void putBytes(byte[] b, int start) {
+      this.buf.put(b, start, valueSize);
+    }
+
+    public int valueSize() { return valueSize; }
   }
 }
