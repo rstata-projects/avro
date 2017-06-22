@@ -24,10 +24,10 @@ import java.nio.ByteBuffer;
 import org.apache.avro.Schema;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.io.parquet.Parquet;
-import org.apache.avro.io.parquet.Parquet.Column;
 import org.apache.avro.io.parsing.Parser;
 import org.apache.avro.io.parsing.ParquetGrammarGenerator;
 import org.apache.avro.io.parsing.ParquetGrammarGenerator.FieldWriteAction;
+import org.apache.avro.io.parsing.ParquetGrammarGenerator.FixedWriteAction;
 import org.apache.avro.io.parsing.Symbol;
 import org.apache.avro.util.Utf8;
 
@@ -66,88 +66,75 @@ public class ParquetEncoder extends ParsingEncoder
   @Override
   public void writeInt(int n) throws IOException {
     parser.advance(Symbol.INT);
-    FieldWriteAction<Column.Int> top
-      = (FieldWriteAction<Column.Int>) parser.popSymbol();
-    top.col.write(n);
+    FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
+    top.col.putInt(n);
   }
 
   @Override
   public void writeLong(long n) throws IOException {
     parser.advance(Symbol.LONG);
-    FieldWriteAction<Column.Long> top
-      = (FieldWriteAction<Column.Long>) parser.popSymbol();
-    top.col.write(n);
+    FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
+    top.col.putLong(n);
   }
 
   @Override
   public void writeFloat(float f) throws IOException {
     parser.advance(Symbol.FLOAT);
-    FieldWriteAction<Column.Float> top
-      = (FieldWriteAction<Column.Float>) parser.popSymbol();
-    top.col.write(f);
+    FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
+    top.col.putFloat(f);
   }
 
   @Override
   public void writeDouble(double d) throws IOException {
     parser.advance(Symbol.DOUBLE);
-    FieldWriteAction<Column.Double> top
-      = (FieldWriteAction<Column.Double>) parser.popSymbol();
-    top.col.write(d);
+    FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
+    top.col.putDouble(d);
   }
 
   @Override
   public void writeString(Utf8 utf8) throws IOException {
     parser.advance(Symbol.STRING);
-    doBytes(utf8.getBytes(), 0, utf8.getByteLength());
+    FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
+    top.col.putBytes(utf8.getBytes(), 0, utf8.getByteLength());
   }
 
   @Override
   public void writeString(String string) throws IOException {
-    parser.advance(Symbol.STRING);
-    byte[] bytes = null;
-    if (0 < string.length()) {
-      bytes = string.getBytes("UTF-8");
-    }
-    doBytes(bytes, 0, bytes.length);
+    writeString(new Utf8(string));
   }
 
   @Override
-  public void writeBytes(ByteBuffer bytes) throws IOException {
+  public void writeBytes(ByteBuffer b) throws IOException {
     parser.advance(Symbol.BYTES);
-    int pos = bytes.position();
-    int len = bytes.limit() - pos;
-    if (bytes.hasArray()) {
-      writeBytes(bytes.array(), bytes.arrayOffset() + pos, len);
+    FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
+    int pos = b.position();
+    int len = b.limit() - pos;
+    if (b.hasArray()) {
+      top.col.putBytes(b.array(), b.arrayOffset() + pos, len);
     } else {
-      byte[] b = new byte[len];
-      bytes.duplicate().get(b, 0, len);
-      doBytes(b, 0, len);
+      byte[] bytes = new byte[len];
+      b.duplicate().get(bytes, 0, len);
+      top.col.putBytes(bytes, 0, len);
     }
   }
 
   @Override
   public void writeBytes(byte[] bytes, int start, int len) throws IOException {
     parser.advance(Symbol.BYTES);
-    doBytes(bytes, 0, len);
-  }
-
-  private void doBytes(byte[] bytes, int start, int len) throws IOException {
-    FieldWriteAction<Column.Bytes> top
-      = (FieldWriteAction<Column.Bytes>) parser.popSymbol();
-    top.col.write(bytes, start, len);
+    FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
+    top.col.putBytes(bytes, start, len);
   }
 
   @Override
   public void writeFixed(byte[] bytes, int start, int len) throws IOException {
     parser.advance(Symbol.FIXED);
-    FieldWriteAction<Column.FixedBytes> top
-      = (FieldWriteAction<Column.FixedBytes>) parser.popSymbol();
-    if (len != top.col.len) {
+    FixedWriteAction top = (FixedWriteAction) parser.popSymbol();
+    if (len != top.size) {
       throw new AvroTypeException(
         "Incorrect length for fixed binary: expected " +
-        top.col.len + " but received " + len + " bytes.");
+        top.size + " but received " + len + " bytes.");
     }
-    top.col.write(bytes, start);
+    top.col.putBytes(bytes, start, len);
   }
 
   @Override

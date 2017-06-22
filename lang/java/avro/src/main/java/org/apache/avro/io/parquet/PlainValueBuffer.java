@@ -56,7 +56,7 @@ abstract class PlainValueBuffer extends ValueBuffer {
     throw new UnsupportedOperationException("Not implemented yet.");
   }
 
-  public static PlainValueBuffer get(Parquet.Column col) {
+  public static PlainValueBuffer get(Column col) {
     switch (col.type) {
     case INT32:
       return new PlainValueBuffer() {

@@ -62,7 +62,7 @@ abstract class ValueBuffer {
 
   public void newChunk() throws IOException { }
 
-  public static ValueBuffer get(Parquet.Column c) {
+  public static ValueBuffer get(Column c) {
     switch (c.encoding) {
     case PLAIN:
       return PlainValueBuffer.get(c);

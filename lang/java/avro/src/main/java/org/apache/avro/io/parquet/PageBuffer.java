@@ -27,7 +27,7 @@ import java.io.OutputStream;
  * ValuesBuffer), formatting Data Page (v2) and Dictionary Pages
  * (writing them into ChunkBuffers).
  */
-class PageBuffer {
+class PageBuffer extends Parquet.ColumnWriter {
   private final ValueBuffer data;
   /* TODO: Eventually, we'll need to keep track of three streams of
    * data: the actual data values, plus the rep- and def-levels
@@ -87,7 +87,7 @@ class PageBuffer {
 
   public void newChunk() throws IOException { data.newChunk(); }
 
-  public static PageBuffer get(Parquet.Column c) {
+  public static PageBuffer get(Column c) {
     switch (c.encoding) {
     case PLAIN:
       return new PageBuffer(PlainValueBuffer.get(c));

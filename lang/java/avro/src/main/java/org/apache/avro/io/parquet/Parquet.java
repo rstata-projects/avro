@@ -45,7 +45,6 @@ public class Parquet implements Closeable {
   };
 
 
-
   private OutputStream out;
   private int bytesWritten;
   private List<Column> cols;
@@ -67,9 +66,38 @@ public class Parquet implements Closeable {
     this.rowsForNextSizeCheck = Math.min(100, rowsPerGroup);
   }
 
-  public void add(Column c) {
+  private ColumnWriter add(Column c) {
     this.cols.add(c);
     this.colInfos.add(c.info);
+    return c.getColumnWriter();
+  }
+
+  public ColumnWriter addIntColumn(String n, Encoding e) {
+    return add(new Column(n, Type.INT32, null, e, 0));
+  }
+
+  public ColumnWriter addLongColumn(String n, Encoding e) {
+    return add(new Column(n, Type.INT64, null, e, 0));
+  }
+
+  public ColumnWriter addFloatColumn(String n, Encoding e) {
+    return add(new Column(n, Type.FLOAT, null, e, 0));
+  }
+
+  public ColumnWriter addDoubleColumn(String n, Encoding e) {
+    return add(new Column(n, Type.DOUBLE, null, e, 0));
+  }
+
+  public ColumnWriter addStringColumn(String n, Encoding e) {
+    return add(new Column(n, Type.BYTE_ARRAY, OriginalType.UTF8, e, 0));
+  }
+
+  public ColumnWriter addBytesColumn(String n, Encoding e) {
+    return add(new Column(n, Type.BYTE_ARRAY, null, e, 0));
+  }
+
+  public ColumnWriter addFixedBytesColumn(String n, Encoding e, int len) {
+    return add(new Column(n, Type.FIXED_LENGTH_BYTE_ARRAY, null, e, len));
   }
 
   public void endRow() throws IOException {
@@ -112,114 +140,25 @@ public class Parquet implements Closeable {
     out.close();
   }
 
-
-  static public abstract class Column {
-    public final String name;
-    public final Type type;
-    public final OriginalType originalType;
-    public final Encoding encoding;
-    public final Integer len;
-    protected final Formatting.ColumnInfo info;
-    protected final PageBuffer pb;
-    protected final ChunkBuffer cb;
-
-    protected Column(String n, Type t, OriginalType ot,
-                     Encoding e, Integer len)
-    {
-      this.name = n;
-      this.type = t;
-      this.originalType = ot;
-      this.encoding = e;
-      this.len = len;
-      this.pb = PageBuffer.get(this);
-      this.cb = new ChunkBuffer();
-      this.info = new Formatting.ColumnInfo(name, t, ot, e, len);
+  public static abstract class ColumnWriter {
+    public void putInt(int i) throws IOException {
+      throw new UnsupportedOperationException();
     }
 
-    public void flushPage() throws IOException {
-      pb.writeDataPageTo(cb);
-      pb.newPage();
+    public void putLong(long l) throws IOException {
+      throw new UnsupportedOperationException();
     }
 
-    public Formatting.ChunkInfo writeChunk(OutputStream out, long chunkOffset)
-      throws IOException
-    {
-      flushPage();
-      int dictLen = 0;
-      if (pb.hasDictionary()) {
-        dictLen = pb.writeDictPageTo(out);
-      }
-      cb.writeTo(out);
-
-      Formatting.ChunkInfo result =
-          new Formatting.ChunkInfo(chunkOffset, chunkOffset+dictLen,
-                                   cb.valueCount(),
-                                   cb.uncompressedSize(), cb.compressedSize(),
-                                   cb.encodings());
-      pb.newChunk();
-      cb.newChunk();
-      return result;
+    public void putFloat(float f) throws IOException {
+      throw new UnsupportedOperationException();
     }
 
-    public static class Int extends Column {
-      public Int(String name, OriginalType ot, Encoding e) {
-        super(name, Type.INT32, ot, e, null);
-      }
-
-      public void write(int i) throws IOException {
-        this.pb.putInt(i);
-      }
+    public void putDouble(double d) throws IOException {
+      throw new UnsupportedOperationException();
     }
 
-    public static class Long extends Column {
-      public Long(String name, OriginalType ot, Encoding e) {
-        super(name, Type.INT64, ot, e, null);
-      }
-
-      public void write(long l) throws IOException {
-        this.pb.putLong(l);
-      }
-    }
-
-    public static class Float extends Column {
-      public Float(String name, OriginalType ot, Encoding e) {
-        super(name, Type.FLOAT, ot, e, null);
-      }
-
-      public void write(float f) throws IOException {
-        this.pb.putFloat(f);
-      }
-    }
-
-    public static class Double extends Column {
-      public Double(String name, OriginalType ot, Encoding e) {
-        super(name, Type.DOUBLE, ot, e, null);
-      }
-
-      public void write(double d) throws IOException {
-        this.pb.putDouble(d);
-      }
-    }
-
-    public static class Bytes extends Column {
-      public Bytes(String name, OriginalType ot, Encoding e) {
-        super(name, Type.BYTE_ARRAY, ot, e, null);
-      }
-
-      public void write(byte[] b, int start, int len) throws IOException {
-        this.pb.putBytes(b, start, len);
-      }
-    }
-
-    public static class FixedBytes extends Column {
-      public final int len;
-      public FixedBytes(String name, OriginalType ot, Encoding e, int len) {
-        super(name, Type.FIXED_LENGTH_BYTE_ARRAY, ot, e, len);
-        this.len = len;
-      }
-      public void write(byte[] b, int start) throws IOException {
-        this.pb.putBytes(b, start, len);
-      }
+    public void putBytes(byte[] b, int start, int len) throws IOException {
+      throw new UnsupportedOperationException();
     }
   }
 }

@@ -17,9 +17,6 @@
  */
 package org.apache.avro.io.parsing;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.io.parquet.Parquet;
@@ -39,49 +36,43 @@ public class ParquetGrammarGenerator {
     }
 
     int ncols = schema.getFields().size();
-    List<Parquet.Column> columns = new ArrayList<Parquet.Column>(ncols);
     Symbol[] production = new Symbol[1 + 2*ncols];
 
     int i = production.length;
     for (Field f : schema.getFields()) {
       String fn = f.name();
-      Symbol term;
-      Parquet.Column col;
       Parquet.Encoding e = Parquet.Encoding.PLAIN;
+      Symbol term;
       Symbol action;
       switch (f.schema().getType()) {
       case INT:
         term = Symbol.INT;
-        action = FieldWriteAction.build(fn, Parquet.Type.INT32, null, e, 0);
+        action = new FieldWriteAction(writer.addIntColumn(fn, e));
         break;
       case LONG:
         term = Symbol.LONG;
-        action = FieldWriteAction.build(fn, Parquet.Type.INT64, null, e, 0);
+        action = new FieldWriteAction(writer.addLongColumn(fn, e));
         break;
       case FLOAT:
         term = Symbol.FLOAT;
-        action = FieldWriteAction.build(fn, Parquet.Type.FLOAT, null, e, 0);
+        action = new FieldWriteAction(writer.addFloatColumn(fn, e));
         break;
       case DOUBLE:
         term = Symbol.DOUBLE;
-        action = FieldWriteAction.build(fn, Parquet.Type.DOUBLE, null, e, 0);
+        action = new FieldWriteAction(writer.addDoubleColumn(fn, e));
         break;
       case BYTES:
         term = Symbol.BYTES;
-        action = FieldWriteAction.build(fn,Parquet.Type.BYTE_ARRAY, null,
-                                        e, 0);
+        action = new FieldWriteAction(writer.addBytesColumn(fn, e));
         break;
       case STRING:
         term = Symbol.STRING;
-        action = FieldWriteAction.build(fn, Parquet.Type.BYTE_ARRAY,
-                                        Parquet.OriginalType.UTF8, e, 0);
+        action = new FieldWriteAction(writer.addStringColumn(fn, e));
         break;
       case FIXED:
         term = Symbol.FIXED;
         int len = f.schema().getFixedSize();
-        action = FieldWriteAction.build(fn,
-                                        Parquet.Type.FIXED_LENGTH_BYTE_ARRAY,
-                                        null, e, len);
+        action = new FieldWriteAction(writer.addFixedBytesColumn(fn, e, len));
         break;
       default:
         throw new IllegalArgumentException("Unsupported subschema: "
@@ -89,7 +80,6 @@ public class ParquetGrammarGenerator {
       }
       production[--i] = term;
       production[--i] = action;
-      writer.add((Parquet.Column)((FieldWriteAction)action).col);
     }
     production[--i] = ROW_END;
 
@@ -101,42 +91,19 @@ public class ParquetGrammarGenerator {
   // would be available as public.
   public static final Symbol ROW_END = Symbol.RECORD_END;
 
-  public static class FieldWriteAction<T> extends Symbol {
-    public final T col;
-    FieldWriteAction(T col) {
+  public static class FieldWriteAction extends Symbol {
+    public final Parquet.ColumnWriter col;
+    FieldWriteAction(Parquet.ColumnWriter col) {
       super(Kind.EXPLICIT_ACTION);
       this.col = col;
     }
+  }
 
-    static public Symbol build(String n,
-                               Parquet.Type t,
-                               Parquet.OriginalType ot,
-                               Parquet.Encoding e,
-                               int len)
-    {
-      switch (t) {
-      case INT32:
-          Parquet.Column.Int ic = new Parquet.Column.Int(n, ot, e);
-          return new FieldWriteAction<Parquet.Column.Int>(ic);
-      case INT64:
-          Parquet.Column.Long lc = new Parquet.Column.Long(n, ot, e);
-          return new FieldWriteAction<Parquet.Column.Long>(lc);
-      case FLOAT:
-          Parquet.Column.Float fc = new Parquet.Column.Float(n, ot, e);
-          return new FieldWriteAction<Parquet.Column.Float>(fc);
-      case DOUBLE:
-          Parquet.Column.Double dc = new Parquet.Column.Double(n, ot, e);
-          return new FieldWriteAction<Parquet.Column.Double>(dc);
-      case BYTE_ARRAY:
-          Parquet.Column.Bytes bc = new Parquet.Column.Bytes(n, ot, e);
-          return new FieldWriteAction<Parquet.Column.Bytes>(bc);
-      case FIXED_LENGTH_BYTE_ARRAY:
-          Parquet.Column.FixedBytes flc= new Parquet.Column.FixedBytes(n,ot,
-                                                                       e, len);
-          return new FieldWriteAction<Parquet.Column.FixedBytes>(flc);
-      default:
-          throw new IllegalArgumentException("Bad type: " + t);
-      }
+  public static class FixedWriteAction extends FieldWriteAction {
+    public final int size;
+    FixedWriteAction(Parquet.ColumnWriter col, int size) {
+      super(col);
+      this.size = size;
     }
   }
 }
