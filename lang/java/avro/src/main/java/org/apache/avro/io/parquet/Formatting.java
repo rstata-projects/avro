@@ -23,6 +23,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+//// from parquet-hadoop
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+
+
+//// from parquet-format
 // General-purpose
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.ConvertedType;
@@ -72,8 +77,12 @@ class Formatting {
     return ConvertedType.valueOf(type.name());
   }
 
-  public static CompressionCodec getType(Parquet.CompressionCodec codec) {
-    return CompressionCodec.valueOf(codec.name());
+  public static PrimitiveTypeName getPrimitiveTypeName(Parquet.Type type) {
+    if (type == Parquet.Type.BYTE_ARRAY) {
+      return PrimitiveTypeName.BINARY;
+    } else {
+      return PrimitiveTypeName.valueOf(type.name());
+    }
   }
 
   public static void magicNumber(OutputStream o) throws IOException {
@@ -105,8 +114,10 @@ class Formatting {
 
   // TODO: Decide whether or not to keep exposing parquet-format types
   public static class ColumnInfo {
+    public final String[] pathAsArray;
     public final List<String> path;
     public final Type type;
+    public final PrimitiveTypeName typeName;
     public final ConvertedType originalType;
     public final Encoding encoding;
     public final Integer len;
@@ -115,8 +126,10 @@ class Formatting {
                       Parquet.Encoding e, Integer len)
     {
       String[] path = { n };
-      this.path = Arrays.asList(path);
+      this.pathAsArray = path;
+      this.path = Arrays.asList(this.pathAsArray);
       this.type = getType(t);
+      this.typeName = getPrimitiveTypeName(t);
       this.originalType = getConvertedType(ot);
       this.encoding = getEncoding(e);
       this.len = len;

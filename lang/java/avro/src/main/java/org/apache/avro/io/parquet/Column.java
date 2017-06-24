@@ -20,20 +20,32 @@ package org.apache.avro.io.parquet;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.ParquetProperties;
+
+
 /**
- * A "writer" class for Parquet columns.
+ * A "writer" class for Parquet columns.  Similar to Parquet's
+ * ColumnWriter* classes.
  */
 class Column {
+  private static final ParquetProperties PARQUET_PROPS
+    = ParquetProperties.builder().build();
+
+  protected final Parquet.ColumnWriter vw;
   protected final PageBuffer pb;
   protected final ChunkBuffer cb;
 
   public Column(Formatting.ColumnInfo ci) {
+    ColumnDescriptor cd
+      = new ColumnDescriptor(ci.pathAsArray, ci.typeName, -1, 0);
+    this.vw = new Parquet.ColumnWriter2(PARQUET_PROPS.newValuesWriter(cd));
     this.pb = PageBuffer.get(ci);
     this.cb = new ChunkBuffer();
   }
 
   public Parquet.ColumnWriter getColumnWriter() {
-    return pb;
+    return vw;
   }
 
   public int sizeCheck(int rowsThisGroup) throws IOException {
