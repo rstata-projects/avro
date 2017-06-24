@@ -20,8 +20,10 @@ package org.apache.avro.io.parquet;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.apache.parquet.format.Encoding;
 
 /**
  * Responsibilities: memory-manage for chunk-buffer, compression,
@@ -35,11 +37,11 @@ class ChunkBuffer {
   private int pageCount;
   private int valueCount;
   private int compressedDelta;
-  public final List<Parquet.Encoding> encodings;
+  public final Set<Encoding> encodings;
 
   public ChunkBuffer() {
     this.buf = new ByteArrayOutputStream(128*1024);
-    encodings = new ArrayList<Parquet.Encoding>(6);
+    encodings = new HashSet<Encoding>(6);
     newChunk();
   }
 
@@ -59,11 +61,13 @@ class ChunkBuffer {
     this.compressedDelta += (len - compressedSize);
   }
 
-  public void registerPageInfo(int valueCountDelta,
-                               Parquet.Encoding encoding)
-  {
+  public void registerPageInfo(int valueCountDelta, Encoding encoding) {
     this.pageCount++;
     this.valueCount += valueCountDelta;
+    this.encodings.add(encoding);
+  }
+
+  public void addEncoding(Encoding encoding) {
     this.encodings.add(encoding);
   }
 
@@ -75,7 +79,7 @@ class ChunkBuffer {
     return this.compressedSize() + compressedDelta;
   }
 
-  public List<Parquet.Encoding> encodings() { return encodings; }
+  public Set<Encoding> encodings() { return encodings; }
 
   public void writeTo(OutputStream out) throws IOException {
     buf.writeTo(out);

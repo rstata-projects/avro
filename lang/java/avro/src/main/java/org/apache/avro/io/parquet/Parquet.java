@@ -23,9 +23,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.parquet.io.api.Binary;
-import org.apache.parquet.column.values.ValuesWriter;
-
 /**
  * The class that generates validating grammar.
  */
@@ -169,38 +166,6 @@ public class Parquet implements Closeable {
 
     public void putBytes(byte[] b, int start, int len) throws IOException {
       throw new UnsupportedOperationException();
-    }
-  }
-
-  public static class ColumnWriter2 extends ColumnWriter {
-    private ValuesWriter w;
-
-    ColumnWriter2(ValuesWriter w) { this.w = w; }
-
-
-    public void putBoolean(boolean b) throws IOException {
-      w.writeBoolean(b);
-    }
-
-    public void putInt(int i) throws IOException {
-      w.writeInteger(i);
-    }
-
-    public void putLong(long l) throws IOException {
-      w.writeLong(l);
-    }
-
-    public void putFloat(float f) throws IOException {
-      w.writeFloat(f);
-      throw new UnsupportedOperationException();
-    }
-
-    public void putDouble(double d) throws IOException {
-      w.writeDouble(d);
-    }
-
-    public void putBytes(byte[] bytes, int start, int len) throws IOException {
-      w.writeBytes(Binary.fromReusedByteArray(bytes, start, len));
     }
   }
 }

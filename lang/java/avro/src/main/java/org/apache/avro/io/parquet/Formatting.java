@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 //// from parquet-hadoop
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
@@ -92,7 +93,7 @@ class Formatting {
   public static class DataPageInfo {
     public final PageHeader header;
 
-    public DataPageInfo(Parquet.Encoding encoding,
+    public DataPageInfo(Encoding encoding,
                         int valueCount, int nullCount, int rowCount,
                         int uncompressedSize, int compressedSize,
                         int repLevelsSize, int defLevelsSize)
@@ -102,7 +103,7 @@ class Formatting {
                          uncompressedSize, compressedSize);
       DataPageHeaderV2 dpHeader
         = new DataPageHeaderV2(valueCount, nullCount, rowCount,
-                               getEncoding(encoding),
+                               encoding,
                                defLevelsSize, repLevelsSize);
       this.header.setData_page_header_v2(dpHeader);
     }
@@ -144,19 +145,16 @@ class Formatting {
     public final int compressedSize;
     public final List<Encoding> encodings;
 
-      public ChunkInfo(long chunkOffset, long firstDataPageOffset,
+    public ChunkInfo(long chunkOffset, long firstDataPageOffset,
                      int valueCount, int uncompressedSize, int compressedSize,
-                     List<Parquet.Encoding> encodings)
+                     Set<Encoding> encodings)
     {
       this.chunkOffset = chunkOffset;
       this.firstDataPageOffset = firstDataPageOffset;
       this.valueCount = valueCount;
       this.uncompressedSize = uncompressedSize;
       this.compressedSize = compressedSize;
-      this.encodings = new ArrayList<Encoding>(encodings.size());
-      for (Parquet.Encoding e: encodings) {
-        this.encodings.add(getEncoding(e));
-      }
+      this.encodings = new ArrayList(encodings);
     }
   }
 
