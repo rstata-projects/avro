@@ -37,111 +37,101 @@ public class ParquetGrammarGenerator {
    * for the grammar for the given schema <tt>sc</tt>.
    */
   public static Symbol generate(MessageType type, ColumnWriteStore cwriters) {
-    return generate(type, 0, 0, 0, type.getColumns(), cwriters);
+    ParquetGrammarGenerator gen = new ParquetGrammarGenerator(type, cwriters);
+    return Symbol.root(gen.generate(type, 0, 0, 0));
   }
 
-  static Symbol generate(Type type,
-                         int depth,
-                         int repLevel,
-                         int defLevel,
-                         List<ColumnDescriptor> columns,
-                         ColumnWriteStore cwriters)
-  {
-    Symbol baseProduction;
-    if (type.isPrimitive()) {
-      PrimitiveType pt = type.asPrimitiveType();
-      ColumnDescriptor column = columns.remove(0);
-      // assert: columns.path.length() == depth
-      FieldWriteAction action
-        = new FieldWriteAction(cwriters.getColumnWriter(column), defLevel);
-      Symbol term;
-      switch (pt.getPrimitiveTypeName()) {
-      case BOOLEAN:
-        term = Symbol.BOOLEAN;
-        break;
-      case INT32:
-        term = Symbol.INT;
-        break;
-      case INT64:
-        term = Symbol.LONG;
-        break;
-      case INT96:
-        throw new IllegalArgumentException("INT96 not supported yet");
-      case FLOAT:
-        term = Symbol.FLOAT;
-        break;
-      case DOUBLE:
-        term = Symbol.DOUBLE;
-        break;
-      case BINARY:
-        term = Symbol.BYTES;
-        break;
-      case FIXED_LEN_BYTE_ARRAY:
-        term = Symbol.FIXED;
-        int len = pt.getTypeLength();
-        action = new FixedWriteAction(action.col, defLevel, len);
-        break;
-      default:
-        throw new IllegalArgumentException("Unknown type for: " + column);
-      }
-      baseProduction = Symbol.seq(action, term);
-    } else {
-      GroupType gt = type.asGroupType();
-      Symbol[] production = new Symbol[gt.getFieldCount()];
-      int i = production.length;
-      for (Type field: gt.getFields()) {
-          int ddl = (field.isRepetition(Type.Repetition.REQUIRED) ? 0 : 1);
-          int drl = (field.isRepetition(Type.Repetition.REPEATED) ? 1 : 0);
-          production[--i] = generate(field, depth+1,
-                                     repLevel+drl, defLevel+ddl,
-                                     columns, cwriters);
-      }
-      baseProduction = Symbol.seq(production);
-    }
+  private final List<ColumnDescriptor> columns;
+  private final ColumnWriteStore cwriters;
+
+  ParquetGrammarGenerator(MessageType t, ColumnWriteStore cw) {
+    this.columns = t.getColumns();
+    this.cwriters = cw;
+    // assert: columns is empty...
+  }
+
+  Symbol generate(Type type, int depth, int repLevel, int defLevel) {
+    WriteNullsAction wn = null;
+    if (! type.isRepetition(Type.Repetition.REQUIRED))
+      // Do this first because call to generateBase will modify "columns"
+      wn = new WriteNullsAction(defLevel-1, descendents(depth));
+
+    Symbol base = generateBase(type, depth, repLevel, defLevel);
 
     switch (type.getRepetition()) {
     case REQUIRED:
-      return baseProduction;
+      return base;
 
     case OPTIONAL:
-      List<ColumnWriter> aln
-        = toWriters(cwriters, findAffectedLeaves(columns, depth));
-      Symbol[] symbols = {
-        new WriteNullsAction(defLevel-1, aln),
-        baseProduction // TODO: flatten
-      };
+      Symbol[] symbols = { wn, base };
       String[] labels = { "absent", "present" }; // Not used...
       return Symbol.seq(Symbol.alt(symbols, labels), Symbol.UNION);
 
     case REPEATED:
-      Symbol replev = new ArrayRepLevel(repLevel);
-      List<ColumnWriter> alr
-        = toWriters(cwriters, findAffectedLeaves(columns, depth));
-      Symbol nulls = new WriteNullsAction(defLevel-1, alr);
-      Symbol repeater
-        = Symbol.repeat(Symbol.ARRAY_END, baseProduction.production);
-      return Symbol.seq(nulls, repeater, replev, Symbol.ARRAY_START);
+      return Symbol.seq(wn, Symbol.repeat(Symbol.ARRAY_END, base.production),
+                        new ArrayRepLevel(repLevel), Symbol.ARRAY_START);
+
+      default:
+        throw new IllegalArgumentException("Unknown repetition for: "
+                                           + columns.get(0));
     }
-    return null; // TODO -- why does compiler need this?
   }
 
-  private static List<ColumnDescriptor>
-    findAffectedLeaves(List<ColumnDescriptor> columns, int depth)
-  {
-      String[] ancestorPath = columns.get(0).getPath();
-      int last = 1;
-      for (; last < columns.size(); last++) {
-        if (! hasPrefix(columns.get(last).getPath(), ancestorPath, depth+1))
-          break;
+  Symbol generateBase(Type type, int depth, int repLevel, int defLevel) {
+    if (! type.isPrimitive()) {
+      GroupType gt = type.asGroupType();
+      Symbol[] production = new Symbol[gt.getFieldCount()];
+      int i = production.length;
+      for (Type field: gt.getFields()) {
+        int r = (field.isRepetition(Type.Repetition.REPEATED) ? 1 : 0);
+        int d = (field.isRepetition(Type.Repetition.REQUIRED) ? 0 : 1);
+        production[--i] = generate(field, depth+1, repLevel+r, defLevel+d);
       }
-      return columns.subList(0, last);
+      return Symbol.seq(production);
+    } // else it's a primitive type:
+
+    PrimitiveType pt = type.asPrimitiveType();
+    ColumnDescriptor column = columns.remove(0);
+    FieldWriteAction action
+      = new FieldWriteAction(cwriters.getColumnWriter(column), defLevel);
+    Symbol term;
+    switch (pt.getPrimitiveTypeName()) {
+    case BOOLEAN: term = Symbol.BOOLEAN; break;
+    case INT32:   term = Symbol.INT;     break;
+    case INT64:   term = Symbol.LONG;    break;
+    case FLOAT:   term = Symbol.FLOAT;   break;
+    case DOUBLE:  term = Symbol.DOUBLE;  break;
+    case BINARY:  term = Symbol.BYTES;   break;
+
+    case INT96:
+      term = Symbol.FIXED;
+      action = new FixedWriteAction(action.col, defLevel, 12);
+      break;
+
+    case FIXED_LEN_BYTE_ARRAY:
+      term = Symbol.FIXED;
+      int len = pt.getTypeLength();
+      action = new FixedWriteAction(action.col, defLevel, len);
+      break;
+
+    default:
+      throw new IllegalArgumentException("Unknown type for: " + column);
+    }
+    return Symbol.seq(action, term);
   }
 
-  private static List<ColumnWriter> toWriters(ColumnWriteStore cwriters,
-                                              List<ColumnDescriptor> columns)
-  {
-    List<ColumnWriter> result = new ArrayList<ColumnWriter>(columns.size());
-    for (ColumnDescriptor d: columns) result.add(cwriters.getColumnWriter(d));
+  /** Return writers for all leaves of columns that that are nested
+    * under columns.get(0).getPath()[0:depth+1]. */
+  private List<ColumnWriter> descendents(int depth) {
+    String[] ancestorPath = columns.get(0).getPath();
+    int last = 1;
+    for (; last < columns.size(); last++) {
+      if (! hasPrefix(columns.get(last).getPath(), ancestorPath, depth+1))
+        break;
+    }
+    List<ColumnWriter> result = new ArrayList<ColumnWriter>(last);
+    for (int i = 0; i < last; i++)
+      result.add(cwriters.getColumnWriter(columns.get(i)));
     return result;
   }
 

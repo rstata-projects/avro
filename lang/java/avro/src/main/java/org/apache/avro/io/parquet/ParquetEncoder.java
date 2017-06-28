@@ -48,7 +48,7 @@ public class ParquetEncoder extends Encoder implements Parser.ActionHandler {
   private int nextItemIndex;
   private boolean closed;
 
-  ParquetEncoder(Path f, MessageType t, ParquetProperties p)
+  public ParquetEncoder(Path f, MessageType t, ParquetProperties p)
     throws IOException
   {
     this.writer = new ParquetEncoderWriter(f, t, p);
@@ -94,15 +94,23 @@ public class ParquetEncoder extends Encoder implements Parser.ActionHandler {
    * optional field, i.e., it's a field of cardinality zero.
    *
    * The rep-level the parser should always be equal to the rep-level
-   * of the lowest repeated-field for which an entire item has been
-   * written.  But we only catch that in arears, which either
-   * writeArrayEnd or startItem are called, which both implicitly end
-   * the previous item written.  If startItem is called, then we set
+   * of the deepest (ie, most-nested) repeated field for which an
+   * entire item has been written.  Our signal that an entire item has
+   * been written comes when we see a call to startItem or
+   * writeArrayEnd -- but we need to check the variable nextItemIndex
+   * to make sure the startItem or writeArrayEnd item is comming after
+   * a full item has already been written, or whether we're waiting
+   * for the first item to be started.
+   *
+   * When startItem is called on the start of the second item, we set
    * repLevel to be equal to the repLevel of the currently-opened
-   * array, since that has now become the lowest array with an entire
+   * array, since that has now become the deepest array with an entire
    * item written out.  If writeArrayEnd is called, then we look at
    * our stack of saved repLevels to find the repLevel that was in
-   * effect before the array we just closed was started. */
+   * effect before the array we just closed was started. (BTW, if
+   * writeArrayEnd is called immediately after writeArrayStart, i.e.,
+   * no startItems were called, then the array is empty, and we need
+   * to arrange to wite out nulls for any leaves in this array). */
 
   @Override
   public void writeBoolean(boolean b) throws IOException {
@@ -147,26 +155,23 @@ public class ParquetEncoder extends Encoder implements Parser.ActionHandler {
   }
 
   @Override
-  public void writeBytes(byte[] bytes, int start, int len) throws IOException {
+  public void writeBytes(byte[] b, int s, int l) throws IOException {
     parser.advance(Symbol.BYTES);
     FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
-    top.col.write(Binary.fromReusedByteArray(bytes, start, len),
-                  repLevel, top.defLevel);
+    top.col.write(Binary.fromReusedByteArray(b, s, l), repLevel, top.defLevel);
   }
 
   @Override
-  public void writeFixed(byte[] b, int start, int len) throws IOException {
+  public void writeFixed(byte[] b, int s, int l) throws IOException {
     parser.advance(Symbol.FIXED);
     FixedWriteAction top = (FixedWriteAction) parser.popSymbol();
-    if (len != top.size) {
+    if (l != top.size) {
       throw new AvroTypeException(
         "Incorrect length for fixed binary: expected " +
-        top.size + " but received " + len + " bytes.");
+        top.size + " but received " + l + " bytes.");
     }
-    Binary bytes = Binary.fromReusedByteArray(b, start, len);
-    top.col.write(bytes, repLevel, top.defLevel);
+    top.col.write(Binary.fromReusedByteArray(b, s, l), repLevel, top.defLevel);
   }
-
 
   @Override
   public void writeIndex(int unionIndex) throws IOException {
@@ -189,51 +194,37 @@ public class ParquetEncoder extends Encoder implements Parser.ActionHandler {
 
   // Array/repetition-related state and methods
 
-  static class RepeaterState {
-    public int oldRL;
-    public int newRL;
+  private static class RepeaterState {
+    public int oldRepLevel;
+    public int currArrayRL;
     public int nextItemIndex;
   }
   private RepeaterState[] rstates = new RepeaterState[10];
   private int pos = -1;
 
-  /** Push a new collection on to the stack. */
-  protected final void push(int newRL) {
-    if (++pos == rstates.length) {
-      rstates = Arrays.copyOf(rstates, pos + 10);
-    }
-    if (rstates[pos] == null) rstates[pos] = new RepeaterState();
-    rstates[pos].oldRL = repLevel;
-    rstates[pos].newRL = newRL;
-    rstates[pos].nextItemIndex = nextItemIndex;
-    nextItemIndex = 0;
-  }
-
-  protected final void pop() {
-    repLevel = rstates[pos].oldRL;
-    nextItemIndex = rstates[pos].nextItemIndex;
-    pos--;
-  }
-
   @Override
   public void writeArrayStart() throws IOException {
     parser.advance(Symbol.ARRAY_START);
     ArrayRepLevel top = (ArrayRepLevel) parser.popSymbol();
-    push(top.repLevel);
+
+    // Push a new nesting-level of repeated item
+    if (++pos == rstates.length) {
+      rstates = Arrays.copyOf(rstates, pos + 10);
+    }
+    if (rstates[pos] == null) rstates[pos] = new RepeaterState();
+    rstates[pos].oldRepLevel = repLevel; // Save but do NOT change repLevel!
+    rstates[pos].currArrayRL = top.repLevel;
+    rstates[pos].nextItemIndex = nextItemIndex;
+    nextItemIndex = 0;
   }
 
   @Override
   public void startItem() throws IOException {
-    // At the start of this method, "nextItemIndex" is actualy the
-    // index of the (newly-started) current item.
-    int currItemIndex = nextItemIndex;
-    nextItemIndex++; // Now nextItemIndex equals the subsequent item's index
-    if (currItemIndex == 1) {
+    if (nextItemIndex++ == 1) {
       // After we've successfully written item #0, update the
-      // rep-level to reflect the rep-level of the current array
-      // (found in rstates[pos].newRL) so that subsequent fields are
-      // written at the right repLevel.
-      repLevel = rstates[pos].newRL;
+      // rep-level to that of the current array so that subsequent
+      // fields are written at right repLevel.
+      repLevel = rstates[pos].currArrayRL;
     }
   }
 
@@ -249,7 +240,10 @@ public class ParquetEncoder extends Encoder implements Parser.ActionHandler {
       // ie, in both cases they have a cardinality of zero.
       writeNulls(top);
     }
-    pop();
+
+    // Pop the repetition-nesting-level stack
+    repLevel = rstates[pos].oldRepLevel;
+    nextItemIndex = rstates[pos--].nextItemIndex;
   }
 
 
