@@ -21,6 +21,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.avro.io.parsing.ParquetGrammar;
+import org.apache.avro.io.parsing.Symbol;
+
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ColumnWriteStore;
 import org.apache.parquet.column.ColumnWriter;
@@ -38,12 +41,13 @@ import org.apache.hadoop.fs.Path;
 public class ParquetEncoderWriter {
   private final MessageType type;
   private final ParquetProperties props;
+  private final ParquetGrammar grammar;
   private final ParquetFileWriter parquetFileWriter;
   private final CodecFactory cfact;
   private final CodecFactory.BytesCompressor compressor;
-  private final ResettingColumnWriteStore columnStore;
 
   private PublicColumnChunkPageWriteStore pageStore;
+  private ColumnWriteStore columnStore;
 
   private long nextRowGroupSize;
   private long recordCountForNextMemCheck;
@@ -56,15 +60,15 @@ public class ParquetEncoderWriter {
     Configuration hconf = new Configuration();
     this.type = t;
     this.props = p;
+    this.grammar = new ParquetGrammar(t);
     this.parquetFileWriter = new ParquetFileWriter(hconf, t, f);
     this.parquetFileWriter.start();
     this.cfact = new CodecFactory(hconf, p.getPageSizeThreshold());
     this.compressor = cfact.getCompressor(CompressionCodecName.UNCOMPRESSED);
-    this.columnStore = new ResettingColumnWriteStore(t);
+    newRowGroup();
   }
 
-  public void start() throws IOException { newRowGroup(); }
-  public ColumnWriteStore getColumnStore() { return columnStore; }
+  public Symbol getRoot() { return grammar.root; }
 
   public void endRecord() {
     columnStore.endRecord();
@@ -89,12 +93,13 @@ public class ParquetEncoderWriter {
   }
 
   private void newRowGroup() throws IOException {
-    this.recsThisGroup = 0;
-    this.nextRowGroupSize = parquetFileWriter.getNextRowGroupSize();
-    this.recordCountForNextMemCheck = props.getMinRowCountForPageSizeCheck();
+    recsThisGroup = 0;
+    nextRowGroupSize = parquetFileWriter.getNextRowGroupSize();
+    recordCountForNextMemCheck = props.getMinRowCountForPageSizeCheck();
     pageStore = new PublicColumnChunkPageWriteStore(compressor, type,
                                                     props.getAllocator());
-    columnStore.reset(props.newColumnWriteStore(type, pageStore));
+    columnStore = props.newColumnWriteStore(type, pageStore);
+    grammar.resetWriters(columnStore);
   }
 
   private void checkBlockSizeReached() throws IOException {
@@ -121,75 +126,5 @@ public class ParquetEncoderWriter {
     estimate = Math.max(estimate, props.getMinRowCountForPageSizeCheck());
     estimate = Math.min(estimate, props.getMaxRowCountForPageSizeCheck());
     return estimate;
-  }
-
-
-  static class ResettingColumnWriteStore implements ColumnWriteStore {
-    private final Map<ColumnDescriptor, ResettingColumnWriter> writers;
-    private ColumnWriteStore underlying;
-
-    public ResettingColumnWriteStore(MessageType t) {
-      this.writers = new HashMap<ColumnDescriptor, ResettingColumnWriter>();
-      for (ColumnDescriptor col: t.getColumns()) {
-        writers.put(col, new ResettingColumnWriter(col));
-      }
-    }
-
-    public void reset(ColumnWriteStore underlying) {
-      this.underlying = underlying;
-      for (ResettingColumnWriter r: writers.values())
-        r.reset(underlying);
-    }
-
-    public void endRecord() {
-      underlying.endRecord();
-    }
-
-    public long getAllocatedSize() { return underlying.getAllocatedSize(); }
-    public long getBufferedSize() { return underlying.getBufferedSize(); }
-    public String memUsageString() { return underlying.memUsageString(); }
-    public void close() { underlying.close(); }
-    public void flush() { underlying.flush(); }
-
-    public ColumnWriter getColumnWriter(ColumnDescriptor column) {
-      return writers.get(column);
-    }
-
-    protected class ResettingColumnWriter implements ColumnWriter {
-      ColumnWriter del;
-      final ColumnDescriptor col;
-
-      public ResettingColumnWriter(ColumnDescriptor col) { this.col = col; }
-
-      public void reset(ColumnWriteStore underlying) {
-        this.del = underlying.getColumnWriter(col);
-      }
-
-      public void write(int value, int repetitionLevel, int definitionLevel)
-        { del.write(value, repetitionLevel, definitionLevel); }
-
-      public void write(long value, int repetitionLevel, int definitionLevel)
-        { del.write(value, repetitionLevel, definitionLevel); }
-
-      public void write(boolean value, int repetitionLevel, int definitionLevel)
-        { del.write(value, repetitionLevel, definitionLevel); }
-
-      public void write(Binary value, int repetitionLevel, int definitionLevel)
-        { del.write(value, repetitionLevel, definitionLevel); }
-
-      public void write(float value, int repetitionLevel, int definitionLevel)
-        { del.write(value, repetitionLevel, definitionLevel); }
-
-      public void write(double value, int repetitionLevel, int definitionLevel)
-        { del.write(value, repetitionLevel, definitionLevel); }
-
-      public void writeNull(int repetitionLevel, int definitionLevel)
-        { del.writeNull(repetitionLevel, definitionLevel); }
-
-      public void close() { del.close(); }
-
-      public long getBufferedSizeInMemory()
-        { return del.getBufferedSizeInMemory(); }
-    }
   }
 }

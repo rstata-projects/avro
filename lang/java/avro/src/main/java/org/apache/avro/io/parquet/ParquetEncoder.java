@@ -24,15 +24,15 @@ import java.util.Arrays;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.parsing.Parser;
-import org.apache.avro.io.parsing.ParquetGrammarGenerator;
-import org.apache.avro.io.parsing.ParquetGrammarGenerator.ArrayRepLevel;
-import org.apache.avro.io.parsing.ParquetGrammarGenerator.FieldWriteAction;
-import org.apache.avro.io.parsing.ParquetGrammarGenerator.FixedWriteAction;
-import org.apache.avro.io.parsing.ParquetGrammarGenerator.WriteNullsAction;
+import org.apache.avro.io.parsing.ParquetGrammar.ArrayRepLevel;
+import org.apache.avro.io.parsing.ParquetGrammar.FieldWriteAction;
+import org.apache.avro.io.parsing.ParquetGrammar.FixedWriteAction;
+import org.apache.avro.io.parsing.ParquetGrammar.WriteNullsAction;
 import org.apache.avro.io.parsing.Symbol;
 import org.apache.avro.util.Utf8;
 
 import org.apache.parquet.column.ColumnWriter;
+import org.apache.parquet.column.ColumnWriteStore;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.MessageType;
@@ -52,10 +52,8 @@ public class ParquetEncoder extends Encoder implements Parser.ActionHandler {
     throws IOException
   {
     this.writer = new ParquetEncoderWriter(f, t, p);
-    Symbol root = ParquetGrammarGenerator.generate(t, writer.getColumnStore());
-    writer.start(); // Initialize after creating columns
 
-    this.parser = new Parser(root, this);
+    this.parser = new Parser(this.writer.getRoot(), this);
     this.repLevel = 0;
     this.nextItemIndex = 0;
     this.closed = false;
