@@ -165,7 +165,7 @@ public class ParquetGrammar {
     ParquetWriteAction() { super(Kind.EXPLICIT_ACTION); }
     public abstract void resetWriters(ColumnWriteStore cwriters);
   }
-      
+
   public static class FieldWriteAction extends ParquetWriteAction {
     public final int defLevel;
     private final ColumnDescriptor cd;

@@ -19,20 +19,16 @@ package org.apache.avro.io.parquet;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.avro.io.parsing.ParquetGrammar;
 import org.apache.avro.io.parsing.Symbol;
 
-import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ColumnWriteStore;
-import org.apache.parquet.column.ColumnWriter;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.CodecFactory;
 import org.apache.parquet.hadoop.PublicColumnChunkPageWriteStore;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.MessageType;
 
 import org.apache.hadoop.conf.Configuration;

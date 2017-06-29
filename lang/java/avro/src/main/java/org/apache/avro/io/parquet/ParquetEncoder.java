@@ -32,7 +32,6 @@ import org.apache.avro.io.parsing.Symbol;
 import org.apache.avro.util.Utf8;
 
 import org.apache.parquet.column.ColumnWriter;
-import org.apache.parquet.column.ColumnWriteStore;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.MessageType;
