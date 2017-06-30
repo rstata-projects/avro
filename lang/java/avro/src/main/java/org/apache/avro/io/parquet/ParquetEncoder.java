@@ -18,6 +18,7 @@
 package org.apache.avro.io.parquet;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -39,29 +40,61 @@ import org.apache.hadoop.fs.Path;
 
 public class ParquetEncoder implements Parser.ActionHandler {
   private final ParquetEncoderWriter writer;
-
   private Parser parser;
-  private int repLevel;
-  private int nextItemIndex;
-  private boolean closed;
+
+  private int repLevel = 0;
+  private int nextItemIndex = 0;
+  private boolean closed = false;
 
   public ParquetEncoder(Path f, MessageType t, ParquetProperties p)
     throws IOException
   {
     this.writer = new ParquetEncoderWriter(f, t, p);
-
     this.parser = new Parser(this.writer.getRoot(), this);
-    this.repLevel = 0;
-    this.nextItemIndex = 0;
-    this.closed = false;
+
+/*
+PrintWriter o = new PrintWriter(System.out,true);
+o.print(t.toString());
+printG(o, this.writer.getRoot(), new java.util.HashMap<Symbol, Boolean>());
+o.println();
+o.flush();
+*/
   }
+
+public static void printG(PrintWriter o, Symbol s, java.util.HashMap<Symbol, Boolean> m) {
+if (m.get(s) != null) return;
+m.put(s, true);
+  switch (s.kind) {
+  case ROOT:
+      o.print("Root:");
+  case SEQUENCE:
+      o.print(" {");
+      for (Symbol s1: s.production) printG(o, s1, m);
+      o.print("}");
+      break;
+  case REPEATER:
+      o.print(" repeat{");
+      for (Symbol s1: s.production) printG(o, s1, m);
+      o.print("}");
+      break;
+  case ALTERNATIVE:
+      o.print(" opt{");
+      printG(o, ((Symbol.Alternative)s).getSymbol(1), m);
+      o.print("}");
+      break;
+  default:
+      o.print(" " + s);
+  }
+}
 
   public void close() throws IOException {
     if (closed) return;
-    if (parser.topSymbol() != Symbol.RECORD_END) {
+    if (parser.topSymbol() == Symbol.RECORD_END) {
+      parser.processImplicitActions();
+    } else if (parser.topSymbol().kind != Symbol.Kind.ROOT) {
+new PrintWriter(System.out,true).println("Ouch: " + parser.topSymbol());
       throw new IllegalStateException("Attempt to close before record ended.");
     }
-    parser.processImplicitActions();
     writer.close();
     closed = true;
     parser = null; // TODO: find graceful way to prevent use after closing
@@ -69,10 +102,11 @@ public class ParquetEncoder implements Parser.ActionHandler {
 
   /** Can only flush on row boundaries!! */
   public void flush() throws IOException {
-    if (parser.topSymbol() != Symbol.RECORD_END) {
+    if (parser.topSymbol() == Symbol.RECORD_END) {
+      parser.processImplicitActions();
+    } else if (parser.topSymbol().kind != Symbol.Kind.ROOT) {
       throw new IllegalStateException("Attempt to flush before record ended.");
     }
-    parser.processImplicitActions();
     writer.flush();
   }
 
@@ -134,6 +168,11 @@ public class ParquetEncoder implements Parser.ActionHandler {
     parser.advance(Symbol.DOUBLE);
     FieldWriteAction top = (FieldWriteAction) parser.popSymbol();
     top.col.write(d, repLevel, top.defLevel);
+  }
+
+  public void writeBytes(String s) throws IOException {
+    byte[] bytes = s.getBytes("UTF-8");
+    writeBytes(bytes, 0, bytes.length);
   }
 
   public void writeBytes(ByteBuffer bytes) throws IOException {

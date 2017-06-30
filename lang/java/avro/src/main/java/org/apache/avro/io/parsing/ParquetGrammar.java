@@ -32,7 +32,6 @@ import org.apache.parquet.schema.Type;
  * Generates grammars to be used by ParquetEncoder.
  */
 public class ParquetGrammar {
-
   public final Symbol root;
   private final List<ParquetWriteAction> actions;
 
@@ -42,7 +41,8 @@ public class ParquetGrammar {
    */
   public ParquetGrammar(MessageType type) {
     Generator gen = new Generator(type);
-    this.root = Symbol.root(gen.generate(type, 0, 0, 0));
+    this.root = Symbol.root(Symbol.seq(Symbol.RECORD_END,
+                                       gen.generate(type, 0, 0, 0)));
     this.actions = gen.actions;
   }
 
@@ -61,14 +61,16 @@ public class ParquetGrammar {
     }
 
     Symbol generate(Type type, int depth, int repLevel, int defLevel) {
+      boolean isMT = (type instanceof MessageType);
       WriteNullsAction wn = null;
-      if (! type.isRepetition(Type.Repetition.REQUIRED)) {
+      if (!isMT && ! type.isRepetition(Type.Repetition.REQUIRED)) {
         // Do this first because call to generateBase will modify "columns"
         wn = new WriteNullsAction(defLevel-1, descendents(depth));
         actions.add(wn);
       }
 
       Symbol base = generateBase(type, depth, repLevel, defLevel);
+      if (isMT) return base; // Special handling for top-level message type
 
       switch (type.getRepetition()) {
       case REQUIRED:
