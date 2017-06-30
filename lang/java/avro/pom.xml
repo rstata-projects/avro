@@ -53,6 +53,12 @@
           <include>org/apache/avro/data/Json.avsc</include>
         </includes>
       </resource>
+      <resource>
+        <directory>target/classes</directory>
+        <includes>
+          <include>org/apache/parquet/hadoop/PublicColumnChunkPageWriteStore.class</include>
+        </includes>
+      </resource>
     </resources>
     <plugins>
       <plugin>
