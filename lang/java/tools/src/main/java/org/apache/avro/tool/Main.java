@@ -62,7 +62,8 @@ public class Main {
         new TrevniCreateRandomTool(),
         new TrevniMetadataTool(),
         new TrevniToJsonTool(),
-        new ParquetBenchmarkTool()
+        new ParquetBenchmarkTool(),
+        new ParquetTestTool()
         }) {
       Tool prev = tools.put(tool.getName(), tool);
       if (prev != null) {
