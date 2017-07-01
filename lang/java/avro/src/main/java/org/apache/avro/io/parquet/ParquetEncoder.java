@@ -24,6 +24,7 @@ import java.util.Arrays;
 
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.io.parsing.Parser;
+import org.apache.avro.io.parsing.ParquetGrammar;
 import org.apache.avro.io.parsing.ParquetGrammar.ArrayRepLevel;
 import org.apache.avro.io.parsing.ParquetGrammar.FieldWriteAction;
 import org.apache.avro.io.parsing.ParquetGrammar.FixedWriteAction;
@@ -40,8 +41,8 @@ import org.apache.hadoop.fs.Path;
 
 public class ParquetEncoder implements Parser.ActionHandler {
   private final ParquetEncoderWriter writer;
+  private final ParquetGrammar grammar;
   private Parser parser;
-
   private int repLevel = 0;
   private int nextItemIndex = 0;
   private boolean closed = false;
@@ -50,8 +51,9 @@ public class ParquetEncoder implements Parser.ActionHandler {
     throws IOException
   {
     this.writer = new ParquetEncoderWriter(f, t, p);
-    this.parser = new Parser(this.writer.getRoot(), this);
-
+    this.grammar = new ParquetGrammar(t);
+    grammar.resetWriters(writer.getColumnWriteStore());
+    this.parser = new Parser(grammar.root, this);
 /*
 PrintWriter o = new PrintWriter(System.out,true);
 o.print(t.toString());
@@ -108,6 +110,7 @@ new PrintWriter(System.out,true).println("Ouch: " + parser.topSymbol());
       throw new IllegalStateException("Attempt to flush before record ended.");
     }
     writer.flush();
+    grammar.resetWriters(writer.getColumnWriteStore());
   }
 
   /* A note about def-levels and rep-levels:
@@ -270,7 +273,8 @@ new PrintWriter(System.out,true).println("Ouch: " + parser.topSymbol());
 
   public Symbol doAction(Symbol input, Symbol top) throws IOException {
     if (top == Symbol.RECORD_END) {
-      writer.endRecord();
+      if (writer.endRecord())
+        grammar.resetWriters(writer.getColumnWriteStore());
     } else {
       throw new IllegalStateException("Unknown action symbol " + top);
     }

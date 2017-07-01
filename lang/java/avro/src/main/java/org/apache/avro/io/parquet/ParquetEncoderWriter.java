@@ -20,9 +20,6 @@ package org.apache.avro.io.parquet;
 import java.io.IOException;
 import java.util.HashMap;
 
-import org.apache.avro.io.parsing.ParquetGrammar;
-import org.apache.avro.io.parsing.Symbol;
-
 import org.apache.parquet.column.ColumnWriteStore;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.CodecFactory;
@@ -34,10 +31,16 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 public class ParquetEncoderWriter {
+  private static final Logger LOG
+    = LoggerFactory.getLogger(ParquetEncoderWriter.class);
+
   private final MessageType type;
   private final ParquetProperties props;
-  private final ParquetGrammar grammar;
   private final ParquetFileWriter parquetFileWriter;
   private final CodecFactory cfact;
   private final CodecFactory.BytesCompressor compressor;
@@ -56,7 +59,6 @@ public class ParquetEncoderWriter {
     Configuration hconf = new Configuration();
     this.type = t;
     this.props = p;
-    this.grammar = new ParquetGrammar(t);
     this.parquetFileWriter = new ParquetFileWriter(hconf, t, f);
     this.parquetFileWriter.start();
     this.cfact = new CodecFactory(hconf, p.getPageSizeThreshold());
@@ -64,11 +66,12 @@ public class ParquetEncoderWriter {
     newRowGroup();
   }
 
-  public Symbol getRoot() { return grammar.root; }
+  public ColumnWriteStore getColumnWriteStore() { return columnStore; }
 
-  public void endRecord() {
+  public boolean endRecord() throws IOException {
     columnStore.endRecord();
     recsThisGroup++;
+    return checkBlockSizeReached();
   }
 
   public void close() throws IOException {
@@ -95,10 +98,9 @@ public class ParquetEncoderWriter {
     pageStore = new PublicColumnChunkPageWriteStore(compressor, type,
                                                     props.getAllocator());
     columnStore = props.newColumnWriteStore(type, pageStore);
-    grammar.resetWriters(columnStore);
   }
 
-  private void checkBlockSizeReached() throws IOException {
+  private boolean checkBlockSizeReached() throws IOException {
     // Copied from InternalParquetRecordWriter.checkBlockSizeReached
     if (recsThisGroup >= recordCountForNextMemCheck) {
       // checking the memory size is relatively expensive, so let's not
@@ -108,14 +110,20 @@ public class ParquetEncoderWriter {
       // flush the row group if it is within ~2 records of the limit
       // it is much better to be slightly under size than to be over at all
       if (memSize > (nextRowGroupSize - 2 * recordSize)) {
+        LOG.info("mem size {} > {}: flushing {} records to disk.",
+                 memSize, nextRowGroupSize, recsThisGroup);
         long tmp = recsThisGroup / 2; // Try to get half-way this time
         flush();
         recordCountForNextMemCheck = recsToNextCheck(tmp);
+        return true;
       } else {
         long tmp = (long)(nextRowGroupSize / ((float)recordSize));
         recordCountForNextMemCheck = recsThisGroup + recsToNextCheck(tmp);
+        LOG.debug("Checked mem at {} will check again at: {}",
+                  recsThisGroup, recordCountForNextMemCheck);
       }
     }
+    return false;
   }
 
   private long recsToNextCheck(long estimate) {
