@@ -10,10 +10,11 @@ import org.apache.hadoop.fs.Path;
 
 import org.apache.avro.io.parquet.ParquetEncoder;
 
-// import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
@@ -35,11 +36,13 @@ public class ParquetTestTool implements Tool {
     test0(props, t2);
     test0(props, t3);
     test0(props, t4);
+    test0(props, t5);
 
     test1(props);
     test2(props);
     test3(props);
     test4(props);
+    test5(props);
   }
 
   public static void test0(ParquetProperties p, MessageType t)
@@ -216,23 +219,93 @@ public class ParquetTestTool implements Tool {
     e.writeArrayStart();
     e.writeBytes("Alias-1");
     e.writeBytes("Alias-2");
+    e.writeBytes("Alias-3");
+    e.writeArrayEnd();
+    e.close();
+    o.println("done");
+  }
+
+  public static void test5(ParquetProperties p) throws IOException {
+    Path f = new Path(t5.getName() + ".10");
+    ParquetEncoder e = new ParquetEncoder(f, t5, p);
+    e.writeLong(0L);
+    e.writeIndex(0);
+    e.close();
+    o.println("done");
+
+    f = new Path(t5.getName() + ".11");
+    e = new ParquetEncoder(f, t5, p);
+    e.writeLong(Long.MAX_VALUE);
+    e.writeIndex(1);
+    e.writeIndex(0);
+    e.writeArrayStart();
+    e.writeArrayEnd();
+    e.writeArrayStart();
     e.writeArrayEnd();
     e.close();
     o.println("done");
 
-    f = new Path(t4.getName() + ".23");
-    e = new ParquetEncoder(f, t4, p);
-    e.writeLong(0L);
+    f = new Path(t5.getName() + ".12");
+    e = new ParquetEncoder(f, t5, p);
+    e.writeLong(Long.MIN_VALUE);
+    e.writeIndex(1);
+    e.writeIndex(1);
+    e.writeBoolean(false);
     e.writeArrayStart();
-    e.writeBytes("Alias-1");
-    e.writeBytes("Alias-2");
-    e.writeBytes("Alias-3");
-    e.writeArrayEnd();
     e.writeLong(1L);
+    e.writeLong(2L);
+    e.writeArrayEnd();
     e.writeArrayStart();
-    e.writeBytes("Alias-1");
-    e.writeBytes("Alias-2");
-    e.writeBytes("Alias-3");
+    e.writeArrayEnd();
+    e.close();
+    o.println("done");
+
+    f = new Path(t5.getName() + ".30");
+    e = new ParquetEncoder(f, t5, p);
+    e.writeLong(0L);
+    e.writeIndex(0);
+
+    e.writeLong(1L);
+    e.writeIndex(1);
+    e.writeIndex(0);
+    e.writeArrayStart();
+    e.writeArrayEnd();
+    e.writeArrayStart();
+    e.writeArrayEnd();
+
+    e.writeLong(2L);
+    e.writeIndex(1);
+    e.writeIndex(1);
+    e.writeBoolean(true);
+    e.writeArrayStart();
+    e.writeArrayEnd();
+    e.writeArrayStart();
+    e.writeArrayEnd();
+
+    e.writeLong(3L);
+    e.writeIndex(1);
+    e.writeIndex(1);
+    e.writeBoolean(false);
+    e.writeArrayStart();
+    e.writeLong(-1L);
+    e.writeLong(-2L);
+    e.writeLong(-3L);
+    e.writeArrayEnd();
+    e.writeArrayStart();
+    e.writeArrayEnd();
+
+    e.writeLong(4L);
+    e.writeIndex(1);
+    e.writeIndex(0);
+    e.writeArrayStart();
+    e.writeLong(1L);
+    e.writeArrayEnd();
+    e.writeArrayStart();
+    e.writeLong(-2L);
+    e.writeLong(-3L);
+    e.writeLong(-4L);
+    e.writeLong(-5L);
+    e.writeLong(-6L);
     e.writeArrayEnd();
     e.close();
     o.println("done");
@@ -259,6 +332,16 @@ public class ParquetTestTool implements Tool {
     new MessageType("parquet-test4",
       new PrimitiveType(REQUIRED, INT64, "DocId"),
       new PrimitiveType(REPEATED, BINARY, "DocAlias")
+    );
+
+  public static MessageType t5 =
+    new MessageType("parquet-test5",
+      new PrimitiveType(REQUIRED, INT64, "DocId"),
+      new GroupType(OPTIONAL, "Links",
+        new PrimitiveType(OPTIONAL, BOOLEAN, "Fresh"),
+        new PrimitiveType(REPEATED, INT64, "Backward"),
+        new PrimitiveType(REPEATED, INT64, "Forward")
+      )
     );
 
   @Override
