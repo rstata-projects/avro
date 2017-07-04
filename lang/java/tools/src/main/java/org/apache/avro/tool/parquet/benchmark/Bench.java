@@ -8,10 +8,12 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.Encoder;
+import org.apache.avro.io.parquet.ParquetEncoder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.api.WriteSupport;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -642,7 +644,7 @@ public class Bench {
       e.writeString(this.version);
     }
 
-    public static String parquetSchema =
+    public static final String PARQUET_SCHEMA =
       "message receipt_record {" +
         "    required binary hashed_ip (UTF8);" +
         "    required binary raw_ip (UTF8);" +
@@ -870,7 +872,8 @@ public class Bench {
   public enum Type {
     READ,
     AVRO,
-    PARQUET_NATIVE
+    PARQUET_NATIVE, // Written using native Parquet API
+    PARQUET_AVRO    // Written using ParquetEncoder of Avro library.
   }
 
   public static void benchmark(Type type, String src, String dst, int repeat) throws IOException {
@@ -927,7 +930,7 @@ public class Bench {
 
           @Override
           protected WriteSupport<ReceiptRecord> getWriteSupport(Configuration conf) {
-            MessageType mt = MessageTypeParser.parseMessageType(ReceiptRecord.parquetSchema);
+            MessageType mt = MessageTypeParser.parseMessageType(ReceiptRecord.PARQUET_SCHEMA);
             return new ReceiptRecordWriteSupport(mt);
           }
         }
@@ -947,6 +950,26 @@ public class Bench {
         }
         w.close();
         System.out.println(n + " rows");
+        break;
+      }
+      case PARQUET_AVRO: {
+        Path path = new Path(dest);
+        MessageType mt = MessageTypeParser.parseMessageType(ReceiptRecord.PARQUET_SCHEMA);
+        Configuration conf = new Configuration();
+        conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
+        conf.set("fs.file.impl", LocalFileSystem.class.getName());
+        path.getFileSystem(conf).delete(path, true);
+        ParquetEncoder pe = new ParquetEncoder(path, mt, ParquetProperties.builder().build());
+        int n = 0;
+        while (df.hasNext()) {
+          ReceiptRecord row = df.next();
+          row.saveAvro(pe);
+          n++;
+        }
+        pe.flush();
+        pe.close();
+        System.out.println(n + " rows");
+        break;
       }
     }
     df.close();

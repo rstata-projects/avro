@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import org.apache.avro.AvroTypeException;
+import org.apache.avro.io.Encoder;
 import org.apache.avro.io.parsing.Parser;
 import org.apache.avro.io.parsing.ParquetGrammar;
 import org.apache.avro.io.parsing.ParquetGrammar.ArrayRepLevel;
@@ -31,6 +32,7 @@ import org.apache.avro.io.parsing.ParquetGrammar.FixedWriteAction;
 import org.apache.avro.io.parsing.ParquetGrammar.WriteNullsAction;
 import org.apache.avro.io.parsing.Symbol;
 
+import org.apache.avro.util.Utf8;
 import org.apache.parquet.column.ColumnWriter;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.io.api.Binary;
@@ -39,7 +41,7 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.hadoop.fs.Path;
 
 
-public class ParquetEncoder implements Parser.ActionHandler {
+public class ParquetEncoder extends Encoder implements Parser.ActionHandler {
   private final ParquetEncoderWriter writer;
   private final ParquetGrammar grammar;
   private Parser parser;
@@ -173,6 +175,17 @@ new PrintWriter(System.out,true).println("Ouch: " + parser.topSymbol());
     top.col.write(d, repLevel, top.defLevel);
   }
 
+
+  @Override
+  public void writeNull() throws IOException {
+    throw new IllegalStateException("Cannot write null at top level");
+  }
+
+  @Override
+  public void writeString(Utf8 utf8) throws IOException {
+    writeBytes(utf8.getBytes());
+  }
+
   public void writeBytes(String s) throws IOException {
     byte[] bytes = s.getBytes("UTF-8");
     writeBytes(bytes, 0, bytes.length);
@@ -199,6 +212,11 @@ new PrintWriter(System.out,true).println("Ouch: " + parser.topSymbol());
         top.size + " but received " + l + " bytes.");
     }
     top.col.write(Binary.fromReusedByteArray(b, s, l), repLevel, top.defLevel);
+  }
+
+  @Override
+  public void writeEnum(int e) throws IOException {
+    writeInt(e);
   }
 
   public void writeIndex(int unionIndex) throws IOException {
@@ -244,6 +262,11 @@ new PrintWriter(System.out,true).println("Ouch: " + parser.topSymbol());
     nextItemIndex = 0;
   }
 
+  @Override
+  public void setItemCount(long itemCount) throws IOException {
+    // No op.
+  }
+
   public void startItem() throws IOException {
     if (nextItemIndex++ == 1) {
       // After we've successfully written item #0, update the
@@ -268,6 +291,16 @@ new PrintWriter(System.out,true).println("Ouch: " + parser.topSymbol());
     // Pop the repetition-nesting-level stack
     repLevel = rstates[pos].oldRepLevel;
     nextItemIndex = rstates[pos--].nextItemIndex;
+  }
+
+  @Override
+  public void writeMapStart() throws IOException {
+    throw new UnsupportedOperationException("Maps are not supported for Paquet format.");
+  }
+
+  @Override
+  public void writeMapEnd() throws IOException {
+    throw new UnsupportedOperationException("Maps are not supported for Paquet format.");
   }
 
 

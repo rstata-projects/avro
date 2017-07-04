@@ -22,13 +22,14 @@ import org.apache.parquet.hadoop.CodecFactory.BytesCompressor;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.bytes.ByteBufferAllocator;
 
-public class PublicColumnChunkPageWriteStore extends ColumnChunkPageWriteStore
-{
+/**
+ * Makes {@link ColumnChunkPageWriteStore} accessible from outside the package.
+ */
+public class PublicColumnChunkPageWriteStore extends ColumnChunkPageWriteStore {
 
   public PublicColumnChunkPageWriteStore(BytesCompressor compressor,
                                          MessageType schema,
-                                         ByteBufferAllocator allocator)
-  {
+                                         ByteBufferAllocator allocator) {
     super(compressor, schema, allocator);
   }
 }

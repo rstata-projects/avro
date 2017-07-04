@@ -17,19 +17,20 @@
  */
 package org.apache.avro.io.parquet;
 
-import java.io.IOException;
-import java.util.HashMap;
-
+import org.apache.avro.io.parsing.ParquetGrammar;
+import org.apache.avro.io.parsing.Symbol;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnWriteStore;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.CodecFactory;
-import org.apache.parquet.hadoop.PublicColumnChunkPageWriteStore;
 import org.apache.parquet.hadoop.ParquetFileWriter;
+import org.apache.parquet.hadoop.PublicColumnChunkPageWriteStore;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
+import java.io.IOException;
+import java.util.HashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +63,7 @@ public class ParquetEncoderWriter {
     this.parquetFileWriter = new ParquetFileWriter(hconf, t, f);
     this.parquetFileWriter.start();
     this.cfact = new CodecFactory(hconf, p.getPageSizeThreshold());
-    this.compressor = cfact.getCompressor(CompressionCodecName.UNCOMPRESSED);
+    this.compressor = cfact.getCompressor(CompressionCodecName.GZIP);
     newRowGroup();
   }
 

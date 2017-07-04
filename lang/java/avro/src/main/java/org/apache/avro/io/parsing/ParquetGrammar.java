@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -37,18 +37,26 @@ public class ParquetGrammar {
 
   /**
    * Returns the non-terminal that is the start symbol
-   * for the grammar for the given schema <tt>sc</tt>.
+   * for the grammar for the given Parquet schema.
+   *
+   * @param type Parquet schema to generate grammar for.
    */
   public ParquetGrammar(MessageType type) {
     Generator gen = new Generator(type);
     this.root = Symbol.root(Symbol.seq(Symbol.RECORD_END,
-                                       gen.generate(type, 0, 0, 0)));
+      gen.generate(type, 0, 0, 0)));
     this.actions = gen.actions;
   }
 
+  /**
+   * Associates action objects within this grammar with the given {@link ColumnWriteStore}.
+   *
+   * @param cwriters ColumnWriteStore to associate with the actions of this grammar.
+   */
   public void resetWriters(ColumnWriteStore cwriters) {
-    for (ParquetWriteAction action: actions)
+    for (ParquetWriteAction action : actions) {
       action.resetWriters(cwriters);
+    }
   }
 
   private static class Generator {
@@ -60,12 +68,21 @@ public class ParquetGrammar {
       this.actions = new ArrayList<ParquetWriteAction>(10);
     }
 
+    /**
+     * Return the symbol corresponding to the given type at given depth.
+     *
+     * @param type     Type for which the symbol needs to be generated.
+     * @param depth    Distance of the given type from the root of the schema.
+     * @param repLevel Repetition level to use if the value the type is repeated.
+     * @param defLevel Definition level to use if the value for the type is defined (not <tt>null</tt>).
+     * @return Symbol corresponding to <tt>type</tt> at depth <tt>depth</tt>.
+     */
     Symbol generate(Type type, int depth, int repLevel, int defLevel) {
       boolean isMT = (type instanceof MessageType);
       WriteNullsAction wn = null;
-      if (!isMT && ! type.isRepetition(Type.Repetition.REQUIRED)) {
+      if (!isMT && !type.isRepetition(Type.Repetition.REQUIRED)) {
         // Do this first because call to generateBase will modify "columns"
-        wn = new WriteNullsAction(defLevel-1, descendents(depth));
+        wn = new WriteNullsAction(defLevel - 1, descendents(depth));
         actions.add(wn);
       }
 
@@ -73,33 +90,33 @@ public class ParquetGrammar {
       if (isMT) return base; // Special handling for top-level message type
 
       switch (type.getRepetition()) {
-      case REQUIRED:
-        return base;
+        case REQUIRED:
+          return base;
 
-      case OPTIONAL:
-        Symbol[] symbols = { wn, base };
-        String[] labels = { "absent", "present" }; // Not used...
-        return Symbol.seq(Symbol.alt(symbols, labels), Symbol.UNION);
+        case OPTIONAL:
+          Symbol[] symbols = {wn, base};
+          String[] labels = {"absent", "present"}; // Not used...
+          return Symbol.seq(Symbol.alt(symbols, labels), Symbol.UNION);
 
-      case REPEATED:
-        return Symbol.seq(wn, Symbol.repeat(Symbol.ARRAY_END, base.production),
-                          new ArrayRepLevel(repLevel), Symbol.ARRAY_START);
+        case REPEATED:
+          return Symbol.seq(wn, Symbol.repeat(Symbol.ARRAY_END, base.production),
+            new ArrayRepLevel(repLevel), Symbol.ARRAY_START);
 
         default:
           throw new IllegalArgumentException("Unknown repetition for: "
-                                             + columns.get(0));
+            + columns.get(0));
       }
     }
 
     Symbol generateBase(Type type, int depth, int repLevel, int defLevel) {
-      if (! type.isPrimitive()) {
+      if (!type.isPrimitive()) {
         GroupType gt = type.asGroupType();
         Symbol[] production = new Symbol[gt.getFieldCount()];
         int i = production.length;
-        for (Type field: gt.getFields()) {
+        for (Type field : gt.getFields()) {
           int r = (field.isRepetition(Type.Repetition.REPEATED) ? 1 : 0);
           int d = (field.isRepetition(Type.Repetition.REQUIRED) ? 0 : 1);
-          production[--i] = generate(field, depth+1, repLevel+r, defLevel+d);
+          production[--i] = generate(field, depth + 1, repLevel + r, defLevel + d);
         }
         return Symbol.seq(production);
       } // else it's a primitive type:
@@ -109,38 +126,52 @@ public class ParquetGrammar {
       FieldWriteAction action = new FieldWriteAction(column, defLevel);
       Symbol term;
       switch (pt.getPrimitiveTypeName()) {
-      case BOOLEAN: term = Symbol.BOOLEAN; break;
-      case INT32:   term = Symbol.INT;     break;
-      case INT64:   term = Symbol.LONG;    break;
-      case FLOAT:   term = Symbol.FLOAT;   break;
-      case DOUBLE:  term = Symbol.DOUBLE;  break;
-      case BINARY:  term = Symbol.BYTES;   break;
+        case BOOLEAN:
+          term = Symbol.BOOLEAN;
+          break;
+        case INT32:
+          term = Symbol.INT;
+          break;
+        case INT64:
+          term = Symbol.LONG;
+          break;
+        case FLOAT:
+          term = Symbol.FLOAT;
+          break;
+        case DOUBLE:
+          term = Symbol.DOUBLE;
+          break;
+        case BINARY:
+          term = Symbol.BYTES;
+          break;
 
-      case INT96:
-        term = Symbol.FIXED;
-        action = new FixedWriteAction(column, defLevel, 12);
-        break;
+        case INT96:
+          term = Symbol.FIXED;
+          action = new FixedWriteAction(column, defLevel, 12);
+          break;
 
-      case FIXED_LEN_BYTE_ARRAY:
-        term = Symbol.FIXED;
-        int len = pt.getTypeLength();
-        action = new FixedWriteAction(column, defLevel, len);
-        break;
+        case FIXED_LEN_BYTE_ARRAY:
+          term = Symbol.FIXED;
+          int len = pt.getTypeLength();
+          action = new FixedWriteAction(column, defLevel, len);
+          break;
 
-      default:
-        throw new IllegalArgumentException("Unknown type for: " + column);
+        default:
+          throw new IllegalArgumentException("Unknown type for: " + column);
       }
       actions.add(action);
       return Symbol.seq(action, term);
     }
 
-    /** Return writers for all leaves of columns that that are nested
-      * under columns.get(0).getPath()[0:depth+1]. */
+    /**
+     * Return writers for all leaves of columns that that are nested
+     * under columns.get(0).getPath()[0:depth+1].
+     */
     private List<ColumnDescriptor> descendents(int depth) {
       String[] ancestorPath = columns.get(0).getPath();
       int last = 1;
       for (; last < columns.size(); last++) {
-        if (! hasPrefix(columns.get(last).getPath(), ancestorPath, depth+1))
+        if (!hasPrefix(columns.get(last).getPath(), ancestorPath, depth + 1))
           break;
       }
       return new ArrayList<ColumnDescriptor>(columns.subList(0, last));
@@ -149,7 +180,7 @@ public class ParquetGrammar {
     private static boolean hasPrefix(String[] s, String[] pre, int len) {
       if (s.length < len) return false;
       for (int j = 0; j < len; j++) {
-        if (! pre[j].equals(s[j])) return false;
+        if (!pre[j].equals(s[j])) return false;
       }
       return true;
     }
@@ -157,6 +188,7 @@ public class ParquetGrammar {
 
   public static class ArrayRepLevel extends Symbol {
     public final int repLevel;
+
     ArrayRepLevel(int repLevel) {
       super(Kind.EXPLICIT_ACTION);
       this.repLevel = repLevel;
@@ -164,7 +196,10 @@ public class ParquetGrammar {
   }
 
   public static abstract class ParquetWriteAction extends Symbol {
-    ParquetWriteAction() { super(Kind.EXPLICIT_ACTION); }
+    ParquetWriteAction() {
+      super(Kind.EXPLICIT_ACTION);
+    }
+
     public abstract void resetWriters(ColumnWriteStore cwriters);
   }
 
@@ -172,6 +207,7 @@ public class ParquetGrammar {
     public final int defLevel;
     private final ColumnDescriptor cd;
     public ColumnWriter col = null;
+
     FieldWriteAction(ColumnDescriptor cd, int defLevel) {
       this.defLevel = defLevel;
       this.cd = cd;
@@ -184,6 +220,7 @@ public class ParquetGrammar {
 
   public static class FixedWriteAction extends FieldWriteAction {
     public final int size;
+
     FixedWriteAction(ColumnDescriptor cd, int defLevel, int size) {
       super(cd, defLevel);
       this.size = size;
@@ -203,8 +240,9 @@ public class ParquetGrammar {
 
     public void resetWriters(ColumnWriteStore cwriters) {
       affectedLeaves.clear();
-      for (ColumnDescriptor cd: affectedLeavesCDs)
+      for (ColumnDescriptor cd : affectedLeavesCDs) {
         affectedLeaves.add(cwriters.getColumnWriter(cd));
+      }
     }
   }
 }
