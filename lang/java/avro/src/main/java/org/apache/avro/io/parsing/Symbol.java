@@ -89,14 +89,14 @@ public abstract class Symbol {
   /**
    * A convenience method to construct a root symbol.
    */
-  static Symbol root(Symbol... symbols) {
+  public static Symbol root(Symbol... symbols) {
     return new Root(symbols);
   }
   /**
    * A convenience method to construct a sequence.
    * @param production  The constituent symbols of the sequence.
    */
-  static Symbol seq(Symbol... production) {
+  public static Symbol seq(Symbol... production) {
     return new Sequence(production);
   }
 
@@ -104,14 +104,14 @@ public abstract class Symbol {
    * A convenience method to construct a repeater.
    * @param symsToRepeat The symbols to repeat in the repeater.
    */
-  static Symbol repeat(Symbol endSymbol, Symbol... symsToRepeat) {
+  public static Symbol repeat(Symbol endSymbol, Symbol... symsToRepeat) {
     return new Repeater(endSymbol, symsToRepeat);
   }
 
   /**
    *  A convenience method to construct a union.
    */
-  static Symbol alt(Symbol[] symbols, String[] labels) {
+  public static Symbol alt(Symbol[] symbols, String[] labels) {
     return new Alternative(symbols, labels);
   }
 
@@ -119,7 +119,7 @@ public abstract class Symbol {
    * A convenience method to construct an ErrorAction.
    * @param e
    */
-  static Symbol error(String e) {
+  public static Symbol error(String e) {
     return new ErrorAction(e);
   }
 
