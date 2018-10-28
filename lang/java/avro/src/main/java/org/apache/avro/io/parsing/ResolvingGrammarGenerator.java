@@ -36,8 +36,6 @@ import org.apache.avro.util.internal.Accessor.ResolvingGrammarGeneratorAccessor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import static org.apache.avro.io.parsing.Resolver.*;
-
 /**
  * The class that generates a resolving grammar to resolve between two
  * schemas.
@@ -62,7 +60,7 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
    * @throws IOException
    */
   public final Symbol generate(Schema writer, Schema reader) throws IOException {
-    Action r = Resolver.resolve(writer, reader);
+    Resolver.Action r = Resolver.resolve(writer, reader);
     return Symbol.root(generate(r, new HashMap<>()));
   }
 
@@ -72,64 +70,72 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
    * resolution.  If the action is for a record and there's already a
    * symbol for that record in <tt>seen</tt>, then that symbol is
    * returned. Otherwise a new symbol is generated and returned.
-   * @param writer    The resolver to be implemented
+   * @param action    The resolver to be implemented
    * @param seen      The &lt;Action&gt; to symbol
    * map of start symbols of resolving grammars so far.
    * @return          The start symbol for the resolving grammar
    * @throws IOException
    */
-  public Symbol generate(Action writer, Map<Object, Symbol> seen) throws IOException {
-    if (writer instanceof Resolver.SkipAction)
-      return Symbol.skipAction(simpleGen(writer.writer, seen));
+  private Symbol generate(Resolver.Action action, Map<Object, Symbol> seen)
+      throws IOException
+  {
+    if (action == null || action instanceof Resolver.DoNothing) {
+      // Reminder: action == null is a ReaderUnion case
+      return simpleGen(action.writer, seen);
 
-    Resolver.Action a = (writer instanceof Resolver.ReaderUnion
-                         ? ((Resolver.ReaderUnion)writer).actualResolution: writer);
-    Symbol result;
-    if (a == null || a instanceof Resolver.DoNothing) {
-      result = simpleGen(a.writer, seen); // Reminder: a == null is a ReaderUnion case
+    } else if (action instanceof Resolver.ErrorAction) {
+      return Symbol.error(action.toString());
 
-    } else if (a instanceof Resolver.Promote) {
-      result =  Symbol.resolve(simpleGen(a.writer, seen), simpleGen(a.reader, seen));
+    } else if (action instanceof Resolver.SkipAction) {
+      return Symbol.skipAction(simpleGen(action.writer, seen));
 
-    } else if (a instanceof Resolver.EnumAdjust) {
-      EnumAdjust e = (EnumAdjust)a;
-      Object[] adjs = new Object[e.adjustments.length];
-      for (int i = 0; i < adjs.length; i++)
-        adjs[i] = (0 <= e.adjustments[i] ? new Integer(i)
-                   : "No match for " + e.writer.getEnumSymbols().get(i));
-      result =  Symbol.seq(Symbol.enumAdjustAction(e.reader.getEnumSymbols().size(),
-                                                   adjs), Symbol.ENUM);
+    } else if (action instanceof Resolver.Promote) {
+      return Symbol.resolve(simpleGen(action.writer, seen), simpleGen(action.reader, seen));
 
-    } else if (a.writer.getType() == Schema.Type.ARRAY) {
-      Symbol es = generate(((Resolver.ContainerAction)a).elementAction, seen);
-      result = Symbol.seq(Symbol.repeat(Symbol.ARRAY_END, es), Symbol.ARRAY_START);
+    } if (action instanceof Resolver.ReaderUnion) { // MUST be done before Map/Array cases!
+      Resolver.ReaderUnion ru = (Resolver.ReaderUnion) action;
+      Symbol s = generate(ru.actualAction, seen);
+      return Symbol.seq(Symbol.unionAdjustAction(ru.firstMatch, s), Symbol.UNION);
 
-    } else if (a.writer.getType() == Schema.Type.MAP) {
-      Symbol es = generate(((Resolver.ContainerAction)a).elementAction, seen);
-      result = Symbol.seq(Symbol.repeat(Symbol.MAP_END, es, Symbol.STRING), Symbol.MAP_START);
+    } else if (action.writer.getType() == Schema.Type.ARRAY) {
+      Symbol es = generate(((Resolver.ContainerAction)action).elementAction, seen);
+      return Symbol.seq(Symbol.repeat(Symbol.ARRAY_END, es), Symbol.ARRAY_START);
 
-    } else if (a.writer.getType() == Schema.Type.UNION) {
-      Action[] branches = ((WriterUnion) a).actions;
+    } else if (action.writer.getType() == Schema.Type.MAP) {
+      Symbol es = generate(((Resolver.ContainerAction)action).elementAction, seen);
+      return Symbol.seq(Symbol.repeat(Symbol.MAP_END, es, Symbol.STRING), Symbol.MAP_START);
+
+    } else if (action.writer.getType() == Schema.Type.UNION) {
+      Resolver.Action[] branches = ((Resolver.WriterUnion) action).actions;
       Symbol[] symbols = new Symbol[branches.length];
       String[] labels = new String[branches.length];
-      int i = 0; for (Action branch : branches) {
+      int i = 0; for (Resolver.Action branch : branches) {
         symbols[i] = generate(branch, seen);
-        labels[i] = a.writer.getTypes().get(i).getFullName();
+        labels[i] = action.writer.getTypes().get(i).getFullName();
         i++;
       }
-      result = Symbol.seq(Symbol.alt(symbols, labels), Symbol.WRITER_UNION_ACTION);
+      return Symbol.seq(Symbol.alt(symbols, labels), Symbol.WRITER_UNION_ACTION);
 
-    } else if (a instanceof Resolver.RecordAdjust) {
-      result = seen.get(a);
+    } else if (action instanceof Resolver.EnumAdjust) {
+      Resolver.EnumAdjust e = (Resolver.EnumAdjust)action;
+      Object[] adjs = new Object[e.adjustments.length];
+      for (int i = 0; i < adjs.length; i++)
+        adjs[i] = (0 <= e.adjustments[i] ? new Integer(e.adjustments[i])
+                   : "No match for " + e.writer.getEnumSymbols().get(i));
+      return  Symbol.seq(Symbol.enumAdjustAction(e.reader.getEnumSymbols().size(),
+                                                 adjs), Symbol.ENUM);
+
+    } else if (action instanceof Resolver.RecordAdjust) {
+      Symbol result = seen.get(action);
       if (result == null) {
-        final RecordAdjust ra = (RecordAdjust)a;
+        final Resolver.RecordAdjust ra = (Resolver.RecordAdjust)action;
         int defaultCount = ra.readerOrder.length - ra.firstDefault;
         int count = 1 + ra.fieldActions.length + 3*defaultCount;
         Symbol[] production = new Symbol[count];
         result = Symbol.seq(production);
-        seen.put(a, result);
+        seen.put(action, result);
         production[--count] = Symbol.fieldOrderAction(ra.readerOrder);
-        for (Action wfa : ra.fieldActions) production[--count] = generate(wfa, seen);
+        for (Resolver.Action wfa : ra.fieldActions) production[--count] = generate(wfa, seen);
         for (int i = ra.firstDefault; i < ra.readerOrder.length; i++) {
           Schema.Field rf = ra.readerOrder[i];
           byte[] bb = getBinary(rf.schema(), rf.defaultValue());
@@ -138,21 +144,16 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
           production[--count] = Symbol.DEFAULT_END_ACTION;
         }
       }
+      return result;
     }
 
-    else throw new IllegalArgumentException("Unrecognized Resolver.Action: " + writer);
-
-    if (writer instanceof Resolver.ReaderUnion) {
-      int j = ((Resolver.ReaderUnion)writer).firstMatch;
-      result = Symbol.seq(Symbol.unionAdjustAction(j, result), Symbol.UNION);
-    }
-
-    return result;
+    throw new IllegalArgumentException("Unrecognized Resolver.Action: " + action);
   }
 
   private Symbol simpleGen(Schema s, Map<Object, Symbol> seen) {
     switch (s.getType()) {
     case NULL: return Symbol.NULL;
+    case BOOLEAN: return Symbol.BOOLEAN;
     case INT: return Symbol.INT;
     case LONG: return Symbol.LONG;
     case FLOAT: return Symbol.FLOAT;
@@ -188,17 +189,24 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
     case RECORD: {
       Symbol result = seen.get(s);
       if (result == null) {
-        Symbol[] production = new Symbol[s.getFields().size()];
+        Symbol[] production = new Symbol[s.getFields().size()+1];
         result = Symbol.seq(production);
         seen.put(s, result);
-        int i = production.length; for (Field f : s.getFields())
+        int i = production.length;
+        // TODO CHECK THE FOLLOWING ASSUMPTION BY REMOVING IT AFER ALL TESTS PASS:
+        // This FieldOrderAction really isn't needed.  However TestValidatingIO
+        // makes assumptions about the state of a parse and gets confused if this
+        // isn't present.
+        production[--i] =
+          Symbol.fieldOrderAction(s.getFields().toArray(new Schema.Field[0]));
+        for (Field f : s.getFields())
           production[--i] = simpleGen(f.schema(), seen);
       }
       return result;
     }
 
     default:
-      throw new IllegalArgumentException("Expected schema type: " + s);
+      throw new IllegalArgumentException("Unexpected schema: " + s);
     }
   }
 
@@ -324,4 +332,3 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
     }
   }
 }
-

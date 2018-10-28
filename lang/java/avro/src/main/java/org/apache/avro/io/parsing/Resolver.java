@@ -23,7 +23,7 @@ import java.util.Map;
 
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
-import static org.apache.avro.io.parsing.Resolver.ErrorAction.Type.*;
+import org.apache.avro.io.parsing.Resolver.ErrorAction.ErrorType;
 
 public class Resolver {
   /**
@@ -59,9 +59,9 @@ public class Resolver {
 
       case FIXED:
         if (w.getFullName() != null && ! w.getFullName().equals(r.getFullName()))
-          return new ErrorAction(w, r, NAMES_DONT_MATCH);
+          return new ErrorAction(w, r, ErrorType.NAMES_DONT_MATCH);
         else if (w.getFixedSize() != r.getFixedSize())
-          return new ErrorAction(w, r, SIZES_DONT_MATCH);
+          return new ErrorAction(w, r, ErrorType.SIZES_DONT_MATCH);
         else return new DoNothing(w, r);
 
       case ARRAY:
@@ -116,7 +116,7 @@ public class Resolver {
    * read), then it's safe to ignore it.
    */
   public static class ErrorAction extends Action {
-    public static enum Type {
+    public static enum ErrorType {
         /** Use when Schema types don't match and can't be converted.  For
          * example, resolving "int" and "enum". */
         INCOMPATIBLE_SCHEMA_TYPES,
@@ -139,11 +139,36 @@ public class Resolver {
         NO_MATCHING_BRANCH
     }
 
-    public final Type error;
+    public final ErrorType error;
 
-    public ErrorAction(Schema w, Schema r, Type e) {
+    public ErrorAction(Schema w, Schema r, ErrorType e) {
       super(w,r);
       this.error = e;
+    }
+
+    public String toString() {
+      String result;
+      switch (this.error) {
+      case INCOMPATIBLE_SCHEMA_TYPES:
+      case NAMES_DONT_MATCH:
+      case SIZES_DONT_MATCH:
+      case NO_MATCHING_BRANCH:
+        return "Found " + writer.getFullName() + ", expecting " + reader.getFullName();
+
+      case MISSING_REQUIRED_FIELD: {
+        List<Field> wfields = writer.getFields();
+        List<Field> rfields = reader.getFields();
+        String fname = "<oops>";
+        for (Field rf : rfields)
+          if (writer.getField(rf.name()) == null && rf.defaultValue() == null)
+            fname = rf.name();
+        return ("Found " + writer.getFullName()
+                + ", expecting " + reader.getFullName()
+                + ", missing required field " + fname);
+      }
+      default:
+        throw new IllegalArgumentException("Unknown error.");
+      }
     }
   }
 
@@ -162,56 +187,46 @@ public class Resolver {
      * @param w Writer's schema
      * @param r Rearder's schema
      * @result a {@link Promote} schema if the two schemas are compatible,
-     * or {@link ErrorAction.Type.INCOMPATIBLE_SCHEMA_TYPE} if they are not.
+     * or {@link ErrorType.INCOMPATIBLE_SCHEMA_TYPE} if they are not.
      * @throws IllegalArgumentException if <em>getType()</em> of the two schemas
      * are not different.
      */
     public static Action resolve(Schema w, Schema r) {
-      if (w.getType()== r.getType())
-        throw new IllegalArgumentException("Only use when reader and writer are different.");
       if (isValid(w, r)) return new Promote(w,r);
-      else return new ErrorAction(w, r, INCOMPATIBLE_SCHEMA_TYPES);
+      else return new ErrorAction(w, r, ErrorType.INCOMPATIBLE_SCHEMA_TYPES);
     }
 
     /** Returns true iff <tt>w</tt> and <tt>r</tt> are both
      * primitive types and either they are the same type or
-     * <tt>w</tt> is promotable to <tt>r</tt>.
+     * <tt>w</tt> is promotable to <tt>r</tt>.  Should
      */
     public static boolean isValid(Schema w, Schema r) {
-      final Schema.Type wt = w.getType();
+      if (w.getType() == r.getType())
+        throw new IllegalArgumentException("Only use when reader and writer are different.");
+      Schema.Type wt = w.getType();
       switch (r.getType()) {
-      case NULL: return true;
+      case INT:
+        switch (wt) { case INT: return true; }
+        break;
       case LONG:
-        switch (wt) {
-        case INT: case LONG: return true;
-        default: break;
-        }
+        switch (wt) { case INT: case LONG: return true; }
+        break;
       case FLOAT:
-        switch (wt) {
-        case INT: case LONG: case FLOAT: return true;
-        default: break;
-        }
+        switch (wt) { case INT: case LONG: case FLOAT: return true; }
+        break;
       case DOUBLE:
-        switch (wt) {
-        case INT: case LONG: case FLOAT: case DOUBLE: return true;
-        default: break;
-        }
+        switch (wt) { case INT: case LONG: case FLOAT: case DOUBLE: return true; }
+        break;
       case BYTES:
-        switch (wt) {
-        case STRING: case BYTES: return true;
-        default: break;
-        }
       case STRING:
-        switch (wt) {
-        case BYTES: case STRING: return true;
-        default: break;
-        }
+        switch (wt) { case STRING: case BYTES: return true; }
+        break;
       }
       return false;
     }
   }
 
-  /** 
+  /**
    * Used for array and map schemas: the public instance variable
    * <tt>elementAction</tt> contains the resolving action needed for
    * the element type of an array or value top of a map.
@@ -261,20 +276,18 @@ public class Resolver {
      */
     public static Action resolve(Schema w, Schema r) {
       if (w.getFullName() != null && ! w.getFullName().equals(r.getFullName()))
-        return new ErrorAction(w, r, NAMES_DONT_MATCH);
+        return new ErrorAction(w, r, ErrorType.NAMES_DONT_MATCH);
 
       final List<String> wsymbols = w.getEnumSymbols();
       final List<String> rsymbols = r.getEnumSymbols();
       final int defaultIndex
         = (r.getEnumDefault() == null ? -1 : rsymbols.indexOf(r.getEnumDefault()));
       int[] adjustments = new int[wsymbols.size()];
-      boolean noAdjustmentsNeeded = true;
       for (int i = 0; i < adjustments.length; i++) {
         int j = rsymbols.indexOf(wsymbols.get(i));
         adjustments[i] = (0 <= j ? j : defaultIndex);
-        noAdjustmentsNeeded &= (i == j);
       }
-      return new EnumAdjust(w, r, (noAdjustmentsNeeded ? null : adjustments));
+      return new EnumAdjust(w, r, adjustments);
     }
   }
 
@@ -339,12 +352,13 @@ public class Resolver {
       Action result = seen.get(wr);
       if (result != null) return result;
 
+/* Current implementation doesn't do this check.  To pass regressions tests, we can't either.
       if (w.getFullName() != null && ! w.getFullName().equals(r.getFullName())) {
-        result = new ErrorAction(w, r, NAMES_DONT_MATCH);
+        result = new ErrorAction(w, r, ErrorType.NAMES_DONT_MATCH);
         seen.put(wr, result);
         return result;
       }
-
+*/
       List<Field> wfields = w.getFields();
       List<Field> rfields = r.getFields();
 
@@ -360,13 +374,13 @@ public class Resolver {
         Field rField = r.getField(wField.name());
         if (rField != null) {
           reordered[ridx++] = rField;
-          actions[i++] = resolve(wField.schema(), rField.schema(), seen);
+          actions[i++] = Resolver.resolve(wField.schema(), rField.schema(), seen);
         } else actions[i++] = new SkipAction(wField.schema());
       }
       for (Field rf : rfields)
         if (w.getField(rf.name()) == null)
           if (rf.defaultValue() == null) {
-            result = new ErrorAction(w, r, MISSING_REQUIRED_FIELD);
+            result = new ErrorAction(w, r, ErrorType.MISSING_REQUIRED_FIELD);
             seen.put(wr, result);
             return result;
           } else reordered[ridx++] = rf;
@@ -399,12 +413,12 @@ public class Resolver {
    */
   public static class ReaderUnion extends Action {
     public final int firstMatch;
-    public final Action actualResolution;
+    public final Action actualAction;
 
     public ReaderUnion(Schema w, Schema r, int firstMatch, Action actual) {
       super(w, r);
       this.firstMatch = firstMatch;
-      this.actualResolution = actual;
+      this.actualAction = actual;
     }
 
     /**
@@ -415,21 +429,98 @@ public class Resolver {
      * <tt>w</tt> <em>is</em> a union schema
      */
     public static Action resolve(Schema w, Schema r, Map<Pair,Action> seen) {
-      Schema.Type wt = w.getType();
-      if (wt == Schema.Type.UNION)
+      if (w.getType() == Schema.Type.UNION)
         throw new IllegalArgumentException("Writer schema is union.");
-      int i = 0; for (Schema b : r.getTypes()) {
-        if (Promote.isValid(w, b))
-          return new ReaderUnion(w, r, i, Promote.resolve(w, b));
-        if (wt == b.getType())
-          if (wt == Schema.Type.RECORD || wt == Schema.Type.ENUM || wt == Schema.Type.FIXED) {
-            String wname = w.getFullName();
-            if (wname != null && wname.equals(b.getFullName()))
-              return new ReaderUnion(w, r, i, Resolver.resolve(w,b,seen));
-          }
-        i++;
+      int i = firstMatchingBranch(w, r, seen);
+      if (0 <= i)
+        return new ReaderUnion(w, r, i, Resolver.resolve(w, r.getTypes().get(i), seen));
+      return new ErrorAction(w, r, ErrorType.NO_MATCHING_BRANCH);
+    }
+
+    private static int firstMatchingBranch(Schema w, Schema r, Map<Pair, Action> seen) {
+      Schema.Type vt = w.getType();
+      // first scan for exact match
+      int j = 0;
+      int structureMatch = -1;
+      for (Schema b : r.getTypes()) {
+        if (vt == b.getType())
+          if (vt == Schema.Type.RECORD || vt == Schema.Type.ENUM ||
+              vt == Schema.Type.FIXED) {
+            String vname = w.getFullName();
+            String bname = b.getFullName();
+            // return immediately if the name matches exactly according to spec
+            if (vname != null && vname.equals(bname))
+              return j;
+
+            if (vt == Schema.Type.RECORD &&
+                !hasMatchError(RecordAdjust.resolve(w, b, seen))) {
+              String vShortName = w.getName();
+              String bShortName = b.getName();
+              // use the first structure match or one where the name matches
+              if ((structureMatch < 0) ||
+                  (vShortName != null && vShortName.equals(bShortName))) {
+                structureMatch = j;
+              }
+            }
+          } else
+            return j;
+        j++;
       }
-      return new ErrorAction(w, r, NO_MATCHING_BRANCH);
+
+      // if there is a record structure match, return it
+      if (structureMatch >= 0)
+        return structureMatch;
+
+      // then scan match via numeric promotion
+      j = 0;
+      for (Schema b : r.getTypes()) {
+        switch (vt) {
+        case INT:
+          switch (b.getType()) {
+          case LONG:
+          case DOUBLE:
+          case FLOAT:
+            return j;
+          }
+          break;
+        case LONG:
+          switch (b.getType()) {
+          case DOUBLE:
+          case FLOAT:
+            return j;
+          }
+          break;
+        case FLOAT:
+          switch (b.getType()) {
+          case DOUBLE:
+              return j;
+          }
+        break;
+        case STRING:
+          switch (b.getType()) {
+          case BYTES:
+            return j;
+          }
+          break;
+        case BYTES:
+          switch (b.getType()) {
+          case STRING:
+            return j;
+          }
+          break;
+        }
+        j++;
+      }
+      return -1;
+    }
+
+    private static boolean hasMatchError(Action action) {
+      if (action instanceof ErrorAction)
+        return true;
+      else
+        for (Action a : ((RecordAdjust)action).fieldActions)
+          if (a instanceof ErrorAction) return true;
+      return false;
     }
   }
 
@@ -437,5 +528,19 @@ public class Resolver {
     public Schema writer;
     public Schema reader;
     Pair(Schema w, Schema r) { writer = w; reader = r; }
+
+    /**
+     * Two Pairs are equal if and only if their underlying schema is
+     * the same (not merely equal).
+     */
+    public boolean equals(Object o) {
+      if (! (o instanceof Pair)) return false;
+      Pair p = (Pair)o;
+      return writer == p.writer && reader == p.reader;
+    }
+
+    public int hashCode() {
+      return writer.hashCode() + reader.hashCode();
+    }
   }
 }

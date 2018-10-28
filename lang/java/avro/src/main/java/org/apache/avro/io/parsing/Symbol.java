@@ -510,7 +510,7 @@ public abstract class Symbol {
     boolean noAdj = true;
     if (adj != null)
       for (int i = 0; i < adj.length; i++)
-        noAdj &= (adj[i] instanceof Integer);
+        noAdj &= ((adj[i] instanceof Integer) && i == (Integer)adj[i]);
     return new EnumAdjustAction(rsymCount, noAdj, adj);
   }
 
