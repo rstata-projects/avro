@@ -15,15 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.avro.io.parsing;
+package org.apache.avro;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
-import org.apache.avro.io.parsing.Resolver.ErrorAction.ErrorType;
+import org.apache.avro.Resolver.ErrorAction.ErrorType;
 
 public class Resolver {
   /**

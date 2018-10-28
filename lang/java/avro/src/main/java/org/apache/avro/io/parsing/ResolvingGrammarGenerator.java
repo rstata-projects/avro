@@ -26,11 +26,11 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.AvroTypeException;
+import org.apache.avro.Resolver;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.parsing.Resolver.Action;
 import org.apache.avro.util.internal.Accessor;
 import org.apache.avro.util.internal.Accessor.ResolvingGrammarGeneratorAccessor;
 
@@ -138,7 +138,7 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
         for (Resolver.Action wfa : ra.fieldActions) production[--count] = generate(wfa, seen);
         for (int i = ra.firstDefault; i < ra.readerOrder.length; i++) {
           Schema.Field rf = ra.readerOrder[i];
-          byte[] bb = getBinary(rf.schema(), rf.defaultValue());
+          byte[] bb = getBinary(rf.schema(), Accessor.defaultValue(rf));
           production[--count] = Symbol.defaultStartAction(bb);
           production[--count] = simpleGen(rf.schema(), seen);
           production[--count] = Symbol.DEFAULT_END_ACTION;
