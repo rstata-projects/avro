@@ -14,9 +14,7 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
--->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+--><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -94,6 +92,7 @@
     <module>thrift</module>
     <module>archetypes</module>
     <module>grpc</module>
+    <module>benchmark</module>
   </modules>
 
   <build>
@@ -102,6 +101,58 @@
       parameters if the plugins are used by child projects -->
     <pluginManagement>
       <plugins>
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>javacc-maven-plugin</artifactId>
+                    <versionRange>[${javacc-plugin.version},)</versionRange>
+                    <goals>
+                      <goal>javacc</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore/>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>com.thoughtworks.paranamer</groupId>
+                    <artifactId>paranamer-maven-plugin</artifactId>
+                    <versionRange>[${paranamer.version},)</versionRange>
+                    <goals>
+                      <goal>generate</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore/>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.avro</groupId>
+                    <artifactId>avro-maven-plugin</artifactId>
+                    <versionRange>[${project.version},)</versionRange>
+                    <goals>
+                      <goal>protocol</goal>
+                      <goal>idl-protocol</goal>
+                      <goal>schema</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore/>
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -309,97 +360,6 @@
 
   <profiles>
     <profile>
-      <id>m2e</id>
-      <activation>
-        <property><name>m2e.version</name></property>
-      </activation>
-      <build>
-        <pluginManagement>
-          <plugins>
-            <plugin>
-              <groupId>org.eclipse.m2e</groupId>
-              <artifactId>lifecycle-mapping</artifactId>
-              <version>1.0.0</version>
-              <configuration>
-                <lifecycleMappingMetadata>
-                  <pluginExecutions>
-                    <pluginExecution>
-                      <pluginExecutionFilter>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-plugin-plugin</artifactId>
-                        <versionRange>[${plugin-plugin.version},)</versionRange>
-                        <goals>
-                          <goal>helpmojo</goal>
-                          <goal>descriptor</goal>
-                        </goals>
-                      </pluginExecutionFilter>
-                      <action>
-                        <ignore />
-                      </action>
-                    </pluginExecution>
-                    <pluginExecution>
-                      <pluginExecutionFilter>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <versionRange>[$${exec-plugin.version},)</versionRange>
-                        <goals>
-                          <goal>exec</goal>
-                        </goals>
-                      </pluginExecutionFilter>
-                      <action>
-                        <ignore />
-                      </action>
-                    </pluginExecution>
-                    <pluginExecution>
-                      <pluginExecutionFilter>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>javacc-maven-plugin</artifactId>
-                        <versionRange>[${javacc-plugin.version},)</versionRange>
-                        <goals>
-                          <goal>javacc</goal>
-                        </goals>
-                      </pluginExecutionFilter>
-                      <action>
-                        <ignore />
-                      </action>
-                    </pluginExecution>
-                    <pluginExecution>
-                      <pluginExecutionFilter>
-                        <groupId>com.thoughtworks.paranamer</groupId>
-                        <artifactId>paranamer-maven-plugin</artifactId>
-                        <versionRange>[${paranamer.version},)</versionRange>
-                        <goals>
-                          <goal>generate</goal>
-                        </goals>
-                      </pluginExecutionFilter>
-                      <action>
-                        <ignore />
-                      </action>
-                    </pluginExecution>
-                    <pluginExecution>
-                      <pluginExecutionFilter>
-                        <groupId>org.apache.avro</groupId>
-                        <artifactId>avro-maven-plugin</artifactId>
-                        <versionRange>[${project.version},)</versionRange>
-                        <goals>
-                          <goal>protocol</goal>
-                          <goal>idl-protocol</goal>
-                          <goal>schema</goal>
-                        </goals>
-                      </pluginExecutionFilter>
-                      <action>
-                        <ignore />
-                      </action>
-                    </pluginExecution>
-                  </pluginExecutions>
-                </lifecycleMappingMetadata>
-              </configuration>
-            </plugin>
-          </plugins>
-        </pluginManagement>
-      </build>
-    </profile>
-    <profile>
       <id>interop-data-test</id>
       <build>
         <plugins>
@@ -447,6 +407,12 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+    	<id>benchmark</id>
+    	<modules>
+    	  <module>benchmark</module>
+    	</modules>
     </profile>
   </profiles>
 
@@ -563,7 +529,8 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-simple</artifactId>
       <version>${slf4j.version}</version>
-      <scope>test</scope>
+      <scope>runtime</scope>
+      <optional>true</optional>
     </dependency>
   </dependencies>
 
