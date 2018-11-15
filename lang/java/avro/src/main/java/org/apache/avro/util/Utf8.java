@@ -115,11 +115,12 @@ public class Utf8 implements Comparable<Utf8>, CharSequence {
   }
 
   public Utf8 set(Utf8 other) {
-    if ( bytes.length < other.length ) {
-      bytes = new byte[ other.length ];
+    if ( this.bytes.length < other.length ) {
+      this.bytes = new byte[ other.length ];
     }
-    length = other.length;
+    this.length = other.length;
     System.arraycopy(other.bytes, 0, bytes, 0, length);
+    this.string = other.string;
     return this;
   }
 

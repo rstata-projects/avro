@@ -58,7 +58,7 @@ import org.openjdk.jmh.infra.Blackhole;
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-public class ReaderBenchmark {
+public class GenericReaderBenchmark {
 
     enum ReaderType {
       GENERIC_STANDARD,
@@ -68,7 +68,7 @@ public class ReaderBenchmark {
     @Param({ "GenericTest", "GenericStrings", "GenericNested", "GenericWithDefault", "GenericWithOutOfOrder" } )
     private String stageName;
 
-    @Param({ "Generic",  "GenericFastRead" })
+    @Param({ "Default",  "FastRead" })
     private String readerImplementation;
 
 
@@ -93,7 +93,7 @@ public class ReaderBenchmark {
       reader.read(null, decoder);
     }
 
-    private BenchmarkStage<? extends Object> getBenchmarkStage( String name ) {
+    protected BenchmarkStage<? extends Object> getBenchmarkStage( String name ) {
       switch ( name ) {
         case "GenericTest" : return new GenericTest();
         case "GenericStrings" : return new GenericStrings();
@@ -105,12 +105,12 @@ public class ReaderBenchmark {
     }
 
     @SuppressWarnings("unchecked")
-    private DatumReader<Object> getDatumReader( String implementation, Schema readerSchema, Schema writerSchema ) {
+    protected DatumReader<Object> getDatumReader( String implementation, Schema readerSchema, Schema writerSchema ) {
       switch ( implementation ) {
-        case "Generic" : {
+        case "Default" : {
           return new GenericData().createDatumReader( writerSchema, readerSchema );
         }
-        case "GenericFastRead" : {
+        case "FastRead" : {
           GenericData data = new GenericData();
           data.setFastReaderEnabled(true);
           return data.createDatumReader( writerSchema, readerSchema );
