@@ -27,7 +27,7 @@ public class EnumReader implements FieldReader<Object> {
   private final Object[] enumObjects;
   private final Schema writerSchema;
 
-  public EnumReader(Object[] enumObjects, Schema writerSchema) {
+  public EnumReader(Object[] enumObjects, Schema writerSchema ) {
     this.enumObjects = enumObjects;
     this.writerSchema = writerSchema;
   }

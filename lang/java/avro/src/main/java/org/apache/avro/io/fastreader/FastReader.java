@@ -1,19 +1,16 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more contributor license
+ * agreements. See the NOTICE file distributed with this work for additional information regarding
+ * copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License. You may obtain a
+ * copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 package org.apache.avro.io.fastreader;
 
@@ -82,16 +79,11 @@ public class FastReader {
   private final GenericData data;
 
   /** first schema is reader schema, second is writer schema */
-  private final Map<Schema, Map<Schema, RecordReader<?>>> readerCache = Collections.synchronizedMap( new WeakIdentityHashMap<>() );
-  private final Map<Schema, Supplier<? extends IndexedRecord>> supplierCache = Collections.synchronizedMap( new WeakIdentityHashMap<>() );
+  private final Map<Schema, Map<Schema, RecordReader<?>>> readerCache =
+      Collections.synchronizedMap(new WeakIdentityHashMap<>());
+  private final Map<Schema, Supplier<? extends IndexedRecord>> supplierCache =
+      Collections.synchronizedMap(new WeakIdentityHashMap<>());
 
-
-  /**
-   * if set to <b>true</b>, fail in reader/writer creation when an illegal conversion state exists,
-   * if set to <b>false</b>, fail when such a state is encountered during serialization or
-   * deserialization (in many cases, it might not even occur, e.g. in unions or enums)
-   */
-  private boolean failFast = false;
 
   private boolean keyClassEnabled = true;
 
@@ -105,17 +97,12 @@ public class FastReader {
     return new FastReader(SpecificData.get());
   }
 
+  public static boolean isSupportedData( GenericData data ) {
+    return data.getClass() == GenericData.class || data.getClass() == SpecificData.class;
+  }
+
   public FastReader(GenericData parentData) {
     this.data = parentData;
-  }
-
-  public FastReader withFailFast(boolean failFast) {
-    this.failFast = failFast;
-    return this;
-  }
-
-  public boolean isFailingFast() {
-    return this.failFast;
   }
 
   public FastReader withKeyClassEnabled(boolean enabled) {
@@ -214,12 +201,14 @@ public class FastReader {
   }
 
 
-  private ExecutionStep getDefaultingStep(Schema readerSchema, Schema writerSchema, Schema.Field field) {
+  private ExecutionStep getDefaultingStep(Schema readerSchema, Schema writerSchema,
+      Schema.Field field) {
     try {
       Object defaultValue = data.getDefaultValue(field);
       return new FieldDefaulter(field.pos(), defaultValue);
     } catch (AvroMissingFieldException e) {
-      return getFailureReaderOrFail("Found " + writerSchema.getFullName() + ", expecting " + readerSchema.getFullName() + ", missing required field " + field.name() );
+      return getFailureReader("Found " + writerSchema.getFullName() + ", expecting "
+          + readerSchema.getFullName() + ", missing required field " + field.name());
     }
   }
 
@@ -236,21 +225,23 @@ public class FastReader {
   private <D extends IndexedRecord> RecordReader<D> getRecordReaderFromCache(Schema readerSchema,
       Schema writerSchema) {
     Map<Schema, RecordReader<?>> writerMap =
-      readerCache.computeIfAbsent(readerSchema, k -> new WeakIdentityHashMap<>());
+        readerCache.computeIfAbsent(readerSchema, k -> new WeakIdentityHashMap<>());
     return (RecordReader<D>) writerMap.computeIfAbsent(writerSchema, k -> new RecordReader<>());
   }
 
-  private Supplier<? extends IndexedRecord> getObjectSupplier( Schema readerSchema ) {
-    return supplierCache.computeIfAbsent( readerSchema, this::createObjectSupplier );
+  private Supplier<? extends IndexedRecord> getObjectSupplier(Schema readerSchema) {
+    return supplierCache.computeIfAbsent(readerSchema, this::createObjectSupplier);
   }
 
   @SuppressWarnings("unchecked")
   private Supplier<? extends IndexedRecord> createObjectSupplier(Schema readerSchema) {
-    // this method might later be specialized to provide improved handling for different types of data
+    // this method might later be specialized to provide improved handling for different types of
+    // data
     final Object object = data.newRecord(null, readerSchema);
     final Class<?> clazz = object.getClass();
 
-    if ( !GenericData.Record.class.isAssignableFrom( clazz ) && IndexedRecord.class.isAssignableFrom(clazz) ) {
+    if (!GenericData.Record.class.isAssignableFrom(clazz)
+        && IndexedRecord.class.isAssignableFrom(clazz)) {
       Supplier<IndexedRecord> supplier;
 
       if (SchemaConstructable.class.isAssignableFrom(clazz)) {
@@ -316,8 +307,8 @@ public class FastReader {
   }
 
   private FieldReader<?> getReaderForBaseType(Schema readerSchema, Schema writerSchema) {
-    if ( readerSchema.getType() != writerSchema.getType() ) {
-      return resolveMismatchedReader( readerSchema, writerSchema );
+    if (readerSchema.getType() != writerSchema.getType()) {
+      return resolveMismatchedReader(readerSchema, writerSchema);
     }
 
     switch (readerSchema.getType()) {
@@ -350,55 +341,60 @@ public class FastReader {
       case FLOAT:
         return FloatReader.get();
       default:
-        return getFailureReaderOrFail("Type " + readerSchema.getType() + " not yet supported.");
+        return getFailureReader("Type " + readerSchema.getType() + " not yet supported.");
     }
   }
 
-  private FieldReader<?> resolveMismatchedReader( Schema readerSchema, Schema writerSchema ) {
-    if ( writerSchema.getType() == Type.UNION ) { // and reader isnt union type
-      Schema pseudoUnion = Schema.createUnion( readerSchema );
-      return getReaderFor( pseudoUnion, writerSchema );
+  private FieldReader<?> resolveMismatchedReader(Schema readerSchema, Schema writerSchema) {
+    if (writerSchema.getType() == Type.UNION) { // and reader isnt union type
+      Schema pseudoUnion = Schema.createUnion(readerSchema);
+      return getReaderFor(pseudoUnion, writerSchema);
     }
 
-    switch ( readerSchema.getType() ) {
+    switch (readerSchema.getType()) {
       case UNION:
-        Schema compatibleReaderSchema = findUnionType( writerSchema, readerSchema.getTypes() );
-        if ( compatibleReaderSchema != null ) {
-          return getReaderFor( compatibleReaderSchema, writerSchema );
+        Schema compatibleReaderSchema = findUnionType(writerSchema, readerSchema.getTypes());
+        if (compatibleReaderSchema != null) {
+          return getReaderFor(compatibleReaderSchema, writerSchema);
         }
         break;
 
       case LONG:
-        if ( writerSchema.getType() == Type.INT ) {
-          return new LongPromotionReader( IntegerReader.get() );
+        if (writerSchema.getType() == Type.INT) {
+          return new LongPromotionReader(IntegerReader.get());
         }
         break;
 
       case DOUBLE:
-        switch ( writerSchema.getType() ) {
-          case FLOAT: return new DoublePromotionReader(FloatReader.get());
-          case LONG: return new DoublePromotionReader(LongReader.get());
-          case INT:  return new DoublePromotionReader(IntegerReader.get());
+        switch (writerSchema.getType()) {
+          case FLOAT:
+            return new DoublePromotionReader(FloatReader.get());
+          case LONG:
+            return new DoublePromotionReader(LongReader.get());
+          case INT:
+            return new DoublePromotionReader(IntegerReader.get());
           default:
         }
         break;
 
       case FLOAT:
-        switch ( writerSchema.getType() ) {
-          case LONG: return new FloatPromotionReader(LongReader.get());
-          case INT: return new FloatPromotionReader(IntegerReader.get());
+        switch (writerSchema.getType()) {
+          case LONG:
+            return new FloatPromotionReader(LongReader.get());
+          case INT:
+            return new FloatPromotionReader(IntegerReader.get());
           default:
         }
         break;
 
       case STRING:
-        if ( writerSchema.getType() == Type.BYTES ) {
-          return createStringReader( readerSchema, readerSchema );
+        if (writerSchema.getType() == Type.BYTES) {
+          return createStringReader(readerSchema, readerSchema);
         }
         break;
 
       case BYTES:
-        if ( writerSchema.getType() == Type.STRING ) {
+        if (writerSchema.getType() == Type.STRING) {
           return BytesReader.get();
         }
         break;
@@ -407,7 +403,7 @@ public class FastReader {
     }
 
     return getSchemaMismatchError(readerSchema, writerSchema);
-}
+  }
 
   private FieldReader<?> createStringReader(Schema readerSchema, Schema writerSchema) {
     FieldReader<?> stringReader = createSimpleStringReader(readerSchema);
@@ -438,7 +434,9 @@ public class FastReader {
     for (Schema thisWriterSchema : writerTypes) {
       Schema thisReaderSchema = findUnionType(thisWriterSchema, readerTypes);
       if (thisReaderSchema == null) {
-        unionReaders[i++] = getFailureReaderOrFail("Found " + thisWriterSchema.getType().getName().toLowerCase() + ", expecting " + getUnionDescriptor(readerSchema));
+        unionReaders[i++] =
+            getFailureReader("Found " + thisWriterSchema.getType().getName().toLowerCase()
+                + ", expecting " + getUnionDescriptor(readerSchema));
       } else {
         unionReaders[i++] = getReaderFor(thisReaderSchema, thisWriterSchema);
       }
@@ -450,24 +448,25 @@ public class FastReader {
 
   private String getUnionDescriptor(Schema schema) {
     List<Schema> types = schema.getTypes();
-    if ( types.size() == 1 ) {
+    if (types.size() == 1) {
       return schema.getTypes().get(0).getName().toLowerCase();
     }
 
-    return "[" + schema.getTypes().stream().map( Schema::getName ).collect( Collectors.joining(",") ) + "]";
+    return "[" + schema.getTypes().stream().map(Schema::getName).collect(Collectors.joining(","))
+        + "]";
   }
 
   private Schema findUnionType(Schema schema, List<Schema> readerTypes) {
     // try for perfect match first
-    for ( Schema thisReaderSchema : readerTypes ) {
-      if ( thisReaderSchema.equals( schema ) ) {
+    for (Schema thisReaderSchema : readerTypes) {
+      if (thisReaderSchema.equals(schema)) {
         return thisReaderSchema;
       }
     }
 
     // then try for compatible
     for (Schema thisReaderSchema : readerTypes) {
-      if ( areCompatible( thisReaderSchema, schema ) ) {
+      if (areCompatible(thisReaderSchema, schema)) {
         return thisReaderSchema;
       }
     }
@@ -475,12 +474,11 @@ public class FastReader {
   }
 
 
-  private boolean areCompatible( Schema readerSchema, Schema writerSchema ) {
+  private boolean areCompatible(Schema readerSchema, Schema writerSchema) {
     try {
       FieldReader<?> reader = getReaderFor(readerSchema, writerSchema);
-      return !( reader instanceof FailureReader );
-    }
-    catch ( Exception e ) {
+      return !(reader instanceof FailureReader);
+    } catch (Exception e) {
       return false;
     }
   }
@@ -567,13 +565,16 @@ public class FastReader {
     List<String> readerSymbols = readerSchema.getEnumSymbols();
     Object[] enumObjects = new Object[writerSymbols.size()];
 
+    Object defaultValue = readerSchema.getEnumDefault() == null ? null
+        : data.createEnum(readerSchema.getEnumDefault(), readerSchema);
+
     // pre-get all possible instances of the enum and cache them
     int i = 0;
     for (String thisWriterSymbol : writerSymbols) {
       if (readerSymbols.contains(thisWriterSymbol)) {
         enumObjects[i] = data.createEnum(thisWriterSymbol, readerSchema);
-      } else if (isFailingFast()) {
-        fail("Enum reader does not contain writer's symbol " + thisWriterSymbol);
+      } else {
+        enumObjects[i] = defaultValue;
       }
       i++;
     }
@@ -583,7 +584,7 @@ public class FastReader {
 
   private FieldReader<?> createFixedReader(Schema readerSchema, Schema writerSchema) {
     if (readerSchema.getFixedSize() != writerSchema.getFixedSize()) {
-      return getFailureReaderOrFail("Reader and writer schemas do not match. Fixed "
+      return getFailureReader("Reader and writer schemas do not match. Fixed "
           + readerSchema.getName() + " expects " + readerSchema.getFixedSize()
           + " bytes, but writer is writing " + writerSchema.getFixedSize());
     }
@@ -592,19 +593,12 @@ public class FastReader {
   }
 
   private FailureReader getSchemaMismatchError(Schema readerSchema, Schema writerSchema) {
-    return getFailureReaderOrFail( "Found " + writerSchema.getType() + ", expecting " + readerSchema.getType() );
+    return getFailureReader(
+        "Found " + writerSchema.getType() + ", expecting " + readerSchema.getType());
   }
 
-  private FailureReader getFailureReaderOrFail(String message) {
-    if (failFast) {
-      throw new InvalidDataException(message);
-    } else {
-      return new FailureReader(message);
-    }
-  }
-
-  private void fail(String message) {
-    throw new InvalidDataException(message);
+  private FailureReader getFailureReader(String message) {
+    return new FailureReader(message);
   }
 
   private static <T> Collection<T> emptyIfNull(Collection<T> collection) {

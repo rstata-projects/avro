@@ -18,11 +18,9 @@
 package org.apache.avro.io.fastreader.readers;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericArray;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.io.Decoder;
 
 public class ReusingArrayReader<D> extends ArrayReader<D> {
@@ -33,16 +31,15 @@ public class ReusingArrayReader<D> extends ArrayReader<D> {
 
   @Override
   public List<D> read(List<D> reuse, Decoder decoder) throws IOException {
-    if ( reuse != null ) {
-      Iterator<D> reuseIterator = reuse.iterator();
+    if ( reuse instanceof GenericArray ) {
       GenericArray<D> reuseArray = (GenericArray<D>)reuse;
       long l = decoder.readArrayStart();
 
-      GenericArray<D> newArray = new GenericData.Array<>( (int) l, getSchema() );
+      reuse.clear();
 
       while (l > 0) {
         for (long i = 0; i < l; i++) {
-          newArray.add( getElementReader().read( getNextReusableElement( reuseIterator ), decoder));
+          reuseArray.add( getElementReader().read( reuseArray.peek(), decoder));
         }
         l = decoder.arrayNext();
       }
@@ -50,15 +47,6 @@ public class ReusingArrayReader<D> extends ArrayReader<D> {
     }
     else {
       return super.read( reuse, decoder );
-    }
-  }
-
-  private D getNextReusableElement( Iterator<D> iterator ) {
-    if ( iterator.hasNext() ) {
-      return iterator.next();
-    }
-    else {
-      return null;
     }
   }
 

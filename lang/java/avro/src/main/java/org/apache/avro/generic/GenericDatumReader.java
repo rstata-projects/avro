@@ -18,14 +18,13 @@
 package org.apache.avro.generic;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Collection;
-import java.nio.ByteBuffer;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Conversion;
 import org.apache.avro.Conversions;
@@ -44,6 +43,8 @@ public class GenericDatumReader<D> implements DatumReader<D> {
   private final GenericData data;
   private Schema actual;
   private Schema expected;
+
+  private DatumReader<D> fastDatumReader = null;
 
   private ResolvingDecoder creatorResolver = null;
   private final Thread creator;
@@ -86,6 +87,7 @@ public class GenericDatumReader<D> implements DatumReader<D> {
       expected = actual;
     }
     creatorResolver = null;
+    fastDatumReader = null;
   }
 
   /** Get the reader's schema. */
@@ -95,11 +97,13 @@ public class GenericDatumReader<D> implements DatumReader<D> {
   public void setExpected(Schema reader) {
     this.expected = reader;
     creatorResolver = null;
+    fastDatumReader = null;
   }
 
   private static final ThreadLocal<Map<Schema,Map<Schema,ResolvingDecoder>>>
     RESOLVER_CACHE =
     new ThreadLocal<Map<Schema,Map<Schema,ResolvingDecoder>>>() {
+    @Override
     protected Map<Schema,Map<Schema,ResolvingDecoder>> initialValue() {
       return new WeakIdentityHashMap<>();
     }
@@ -140,6 +144,14 @@ public class GenericDatumReader<D> implements DatumReader<D> {
   @Override
   @SuppressWarnings("unchecked")
   public D read(D reuse, Decoder in) throws IOException {
+    if ( data.isFastReaderEnabled() ) {
+      DatumReader<D> localFastDatumReader = this.fastDatumReader;
+      if ( fastDatumReader == null ) {
+        localFastDatumReader = data.getFastReader().createDatumReader( actual, expected );
+        fastDatumReader = localFastDatumReader;
+      }
+      return localFastDatumReader.read( reuse, in );
+    }
     ResolvingDecoder resolver = getResolver(actual, expected);
     resolver.configure(in);
     D result = (D) read(reuse, expected, resolver);
