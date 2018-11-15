@@ -330,7 +330,7 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
    * @param n The Json node to encode.
    * @throws IOException
    */
-  static void encode(Encoder e, Schema s, JsonNode n)
+  public static void encode(Encoder e, Schema s, JsonNode n)
     throws IOException {
     switch (s.getType()) {
     case RECORD:
@@ -554,12 +554,14 @@ public class ResolvingGrammarGenerator extends ValidatingGrammarGenerator {
        super(actual);
        this.expected = expected;
      }
-     public boolean equals(Object o) {
+     @Override
+    public boolean equals(Object o) {
        if (! (o instanceof LitS2)) return false;
        LitS2 other = (LitS2) o;
        return actual == other.actual && expected == other.expected;
      }
-     public int hashCode() {
+     @Override
+    public int hashCode() {
        return super.hashCode() + expected.hashCode();
      }
    }

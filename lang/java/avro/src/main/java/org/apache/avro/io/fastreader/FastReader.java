@@ -14,9 +14,12 @@
  */
 package org.apache.avro.io.fastreader;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,10 +30,14 @@ import java.util.stream.Collectors;
 import org.apache.avro.AvroMissingFieldException;
 import org.apache.avro.Conversion;
 import org.apache.avro.Schema;
+import org.apache.avro.Schema.Field;
 import org.apache.avro.Schema.Type;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.Encoder;
+import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.io.fastreader.readers.ArrayReader;
 import org.apache.avro.io.fastreader.readers.BooleanReader;
 import org.apache.avro.io.fastreader.readers.BytesReader;
@@ -47,6 +54,7 @@ import org.apache.avro.io.fastreader.readers.NullReader;
 import org.apache.avro.io.fastreader.readers.ReconfigurableReader;
 import org.apache.avro.io.fastreader.readers.RecordReader;
 import org.apache.avro.io.fastreader.readers.RecordReader.Stage;
+import org.apache.avro.io.fastreader.readers.SerializedFieldReader;
 import org.apache.avro.io.fastreader.readers.StringReader;
 import org.apache.avro.io.fastreader.readers.UnionReader;
 import org.apache.avro.io.fastreader.readers.Utf8Reader;
@@ -63,11 +71,15 @@ import org.apache.avro.io.fastreader.steps.ExecutionStep;
 import org.apache.avro.io.fastreader.steps.FieldDefaulter;
 import org.apache.avro.io.fastreader.steps.FieldSetter;
 import org.apache.avro.io.fastreader.steps.FieldSkipper;
+import org.apache.avro.io.fastreader.steps.SupplierFieldSetter;
 import org.apache.avro.io.fastreader.utils.ReflectionUtils;
+import org.apache.avro.io.parsing.ResolvingGrammarGenerator;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificData.SchemaConstructable;
 import org.apache.avro.specific.SpecificRecordBase;
+import org.apache.avro.util.Utf8;
 import org.apache.avro.util.WeakIdentityHashMap;
+import org.apache.avro.util.internal.Accessor;
 
 public class FastReader {
 
@@ -128,13 +140,17 @@ public class FastReader {
     return new ReconfigurableReader<>(this, readerSchema, writerSchema);
   }
 
+  public <D> DatumReader<D> createDatumReader(Schema schema) throws IOException {
+    return createDatumReader( schema, schema );
+  }
+
   @SuppressWarnings("unchecked")
-  public <D> DatumReader<D> createDatumReader(Schema writerSchema, Schema readerSchema) {
+  public <D> DatumReader<D> createDatumReader(Schema writerSchema, Schema readerSchema) throws IOException {
     return (DatumReader<D>) getReaderFor(readerSchema, writerSchema);
   }
 
   public <D extends IndexedRecord> RecordReader<D> createRecordReader(Schema readerSchema,
-      Schema writerSchema) {
+      Schema writerSchema) throws IOException {
     // record readers are created in a two-step process, first registering it, then initializing it,
     // to prevent endless loops on recursive types
     RecordReader<D> recordReader = getRecordReaderFromCache(readerSchema, writerSchema);
@@ -148,7 +164,7 @@ public class FastReader {
   }
 
   private <D extends IndexedRecord> RecordReader<D> initializeRecordReader(
-      RecordReader<D> recordReader, Schema readerSchema, Schema writerSchema) {
+      RecordReader<D> recordReader, Schema readerSchema, Schema writerSchema) throws IOException {
     try {
       recordReader.startInitialization();
 
@@ -202,14 +218,51 @@ public class FastReader {
 
 
   private ExecutionStep getDefaultingStep(Schema readerSchema, Schema writerSchema,
-      Schema.Field field) {
+      Schema.Field field) throws IOException {
     try {
       Object defaultValue = data.getDefaultValue(field);
-      return new FieldDefaulter(field.pos(), defaultValue);
+
+      if ( isObjectImmutable( defaultValue ) ) {
+        return new FieldDefaulter( field.pos(), defaultValue );
+      }
+      else if ( defaultValue instanceof Utf8 ) {
+        // need to duplicate the default value, because it is mutable
+        return new SupplierFieldSetter<Object>( field.pos(), ()-> new Utf8( (Utf8) defaultValue ) );
+      }
+      else if ( defaultValue instanceof List && ((List<?>)defaultValue).isEmpty() ) {
+        return new SupplierFieldSetter<Object>( field.pos(), () -> new GenericData.Array<>( 0, readerSchema ) );
+      }
+      else if ( defaultValue instanceof Map && ((Map<?,?>)defaultValue).isEmpty() ) {
+        return new SupplierFieldSetter<Object>( field.pos(), HashMap::new );
+      }
+      else {
+        DatumReader<Object> reader = createDatumReader( field.schema() );
+        byte[] encoded = getEncodedValue( field );
+        return new FieldSetter<Object>( field.pos(), new SerializedFieldReader<Object>( encoded, reader ) );
+      }
     } catch (AvroMissingFieldException e) {
       return getFailureReader("Found " + writerSchema.getFullName() + ", expecting "
           + readerSchema.getFullName() + ", missing required field " + field.name());
     }
+  }
+
+  private boolean isObjectImmutable( Object object ) {
+    return object == null ||
+        object instanceof Number ||
+        object instanceof String ||
+        object instanceof GenericEnumSymbol ||
+        object.getClass().isEnum();
+  }
+
+
+  private byte[] getEncodedValue( Field field ) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
+
+    ResolvingGrammarGenerator.encode( encoder, field.schema(), Accessor.defaultValue( field ));
+    encoder.flush();
+
+    return out.toByteArray();
   }
 
 
@@ -265,12 +318,12 @@ public class FastReader {
   }
 
 
-  private FieldReader<?> getReaderFor(Schema readerSchema, Schema writerSchema) {
+  private FieldReader<?> getReaderFor(Schema readerSchema, Schema writerSchema) throws IOException {
     return getReaderFor(readerSchema, writerSchema, null);
   }
 
   private FieldReader<?> getReaderFor(Schema readerSchema, Schema writerSchema,
-      Conversion<?> explicitConversion) {
+      Conversion<?> explicitConversion) throws IOException {
     final FieldReader<?> baseReader = getReaderForBaseType(readerSchema, writerSchema);
     return applyConversions(readerSchema, baseReader, explicitConversion);
   }
@@ -306,7 +359,7 @@ public class FastReader {
     }
   }
 
-  private FieldReader<?> getReaderForBaseType(Schema readerSchema, Schema writerSchema) {
+  private FieldReader<?> getReaderForBaseType(Schema readerSchema, Schema writerSchema) throws IOException {
     if (readerSchema.getType() != writerSchema.getType()) {
       return resolveMismatchedReader(readerSchema, writerSchema);
     }
@@ -345,7 +398,7 @@ public class FastReader {
     }
   }
 
-  private FieldReader<?> resolveMismatchedReader(Schema readerSchema, Schema writerSchema) {
+  private FieldReader<?> resolveMismatchedReader(Schema readerSchema, Schema writerSchema) throws IOException {
     if (writerSchema.getType() == Type.UNION) { // and reader isnt union type
       Schema pseudoUnion = Schema.createUnion(readerSchema);
       return getReaderFor(pseudoUnion, writerSchema);
@@ -424,7 +477,7 @@ public class FastReader {
     }
   }
 
-  private FieldReader<?> createUnionReader(Schema readerSchema, Schema writerSchema) {
+  private FieldReader<?> createUnionReader(Schema readerSchema, Schema writerSchema) throws IOException {
     List<Schema> readerTypes = readerSchema.getTypes();
     List<Schema> writerTypes = writerSchema.getTypes();
 
@@ -510,7 +563,7 @@ public class FastReader {
     return null;
   }
 
-  private FieldReader<?> createMapReader(Schema readerSchema, Schema writerSchema) {
+  private FieldReader<?> createMapReader(Schema readerSchema, Schema writerSchema) throws IOException {
     FieldReader<?> keyReader = createMapKeyReader(readerSchema);
     FieldReader<?> valueReader =
         getReaderFor(readerSchema.getValueType(), writerSchema.getValueType());
@@ -554,7 +607,7 @@ public class FastReader {
     }
   }
 
-  private FieldReader<?> createArrayReader(Schema readerSchema, Schema writerSchema) {
+  private FieldReader<?> createArrayReader(Schema readerSchema, Schema writerSchema) throws IOException {
     FieldReader<?> fieldReader =
         getReaderFor(readerSchema.getElementType(), writerSchema.getElementType());
     return ArrayReader.of(fieldReader, readerSchema);

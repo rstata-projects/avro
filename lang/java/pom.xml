@@ -92,7 +92,6 @@
     <module>thrift</module>
     <module>archetypes</module>
     <module>grpc</module>
-    <module>benchmark</module>
   </modules>
 
   <build>

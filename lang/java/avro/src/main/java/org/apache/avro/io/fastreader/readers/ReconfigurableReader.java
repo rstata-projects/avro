@@ -50,7 +50,7 @@ public class ReconfigurableReader<T> implements DatumReader<T> {
   }
 
   @SuppressWarnings("unchecked")
-  private FieldReader<T> getReader() {
+  private FieldReader<T> getReader() throws IOException {
     if (reader == null) {
       reader = (FieldReader<T>) fastData.createDatumReader(writerSchema, readerSchema);
     }
