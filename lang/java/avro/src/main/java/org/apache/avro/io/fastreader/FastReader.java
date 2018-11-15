@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,6 +41,8 @@ import org.apache.avro.io.fastreader.readers.ArrayReader;
 import org.apache.avro.io.fastreader.readers.BooleanReader;
 import org.apache.avro.io.fastreader.readers.BytesReader;
 import org.apache.avro.io.fastreader.readers.DoubleReader;
+import org.apache.avro.io.fastreader.readers.EmptyArrayReader;
+import org.apache.avro.io.fastreader.readers.EmptyMapReader;
 import org.apache.avro.io.fastreader.readers.EnumReader;
 import org.apache.avro.io.fastreader.readers.FailureReader;
 import org.apache.avro.io.fastreader.readers.FieldReader;
@@ -57,6 +58,7 @@ import org.apache.avro.io.fastreader.readers.RecordReader.Stage;
 import org.apache.avro.io.fastreader.readers.SerializedFieldReader;
 import org.apache.avro.io.fastreader.readers.StringReader;
 import org.apache.avro.io.fastreader.readers.UnionReader;
+import org.apache.avro.io.fastreader.readers.Utf8ConstantReader;
 import org.apache.avro.io.fastreader.readers.Utf8Reader;
 import org.apache.avro.io.fastreader.readers.conversion.BytesConversionReader;
 import org.apache.avro.io.fastreader.readers.conversion.FixedConversionReader;
@@ -71,7 +73,6 @@ import org.apache.avro.io.fastreader.steps.ExecutionStep;
 import org.apache.avro.io.fastreader.steps.FieldDefaulter;
 import org.apache.avro.io.fastreader.steps.FieldSetter;
 import org.apache.avro.io.fastreader.steps.FieldSkipper;
-import org.apache.avro.io.fastreader.steps.SupplierFieldSetter;
 import org.apache.avro.io.fastreader.utils.ReflectionUtils;
 import org.apache.avro.io.parsing.ResolvingGrammarGenerator;
 import org.apache.avro.specific.SpecificData;
@@ -155,9 +156,11 @@ public class FastReader {
     // to prevent endless loops on recursive types
     RecordReader<D> recordReader = getRecordReaderFromCache(readerSchema, writerSchema);
 
-    // only need to initialize once
-    if (recordReader.getInitializationStage() == Stage.NEW) {
-      initializeRecordReader(recordReader, readerSchema, writerSchema);
+    synchronized ( recordReader ) {
+      // only need to initialize once
+      if (recordReader.getInitializationStage() == Stage.NEW) {
+        initializeRecordReader(recordReader, readerSchema, writerSchema);
+      }
     }
 
     return recordReader;
@@ -226,14 +229,14 @@ public class FastReader {
         return new FieldDefaulter( field.pos(), defaultValue );
       }
       else if ( defaultValue instanceof Utf8 ) {
-        // need to duplicate the default value, because it is mutable
-        return new SupplierFieldSetter<Object>( field.pos(), ()-> new Utf8( (Utf8) defaultValue ) );
+        // try to avoid allocations
+        return new FieldSetter<Utf8>( field.pos(), new Utf8ConstantReader( (Utf8)defaultValue) );
       }
       else if ( defaultValue instanceof List && ((List<?>)defaultValue).isEmpty() ) {
-        return new SupplierFieldSetter<Object>( field.pos(), () -> new GenericData.Array<>( 0, readerSchema ) );
+        return new FieldSetter<List<Object>>( field.pos(), new EmptyArrayReader<>( field.schema() ) );
       }
       else if ( defaultValue instanceof Map && ((Map<?,?>)defaultValue).isEmpty() ) {
-        return new SupplierFieldSetter<Object>( field.pos(), HashMap::new );
+        return new FieldSetter<Map<Object,Object>>( field.pos(), new EmptyMapReader<>() );
       }
       else {
         DatumReader<Object> reader = createDatumReader( field.schema() );
