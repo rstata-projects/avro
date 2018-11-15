@@ -13,6 +13,11 @@ public class Utf8ConstantReader implements FieldReader<Utf8> {
   }
 
   @Override
+  public boolean canReuse() {
+    return true;
+  }
+
+  @Override
   public Utf8 read(Utf8 reuse, Decoder decoder) throws IOException {
     if ( reuse != null ) {
       return reuse.set( constantValue );

@@ -15,6 +15,11 @@ public class EmptyArrayReader<D> implements FieldReader<List<D>> {
   }
 
   @Override
+  public boolean canReuse() {
+    return true;
+  }
+
+  @Override
   public List<D> read(List<D> reuse, Decoder decoder) throws IOException {
     if ( reuse != null ) {
       reuse.clear();

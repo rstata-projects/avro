@@ -87,6 +87,10 @@ public class ReaderBenchmark {
       this.readerSchema= currentStage.getReaderSchema();
       this.writerSchema = currentStage.getWriterSchema();
       this.reader = getDatumReader( readerImplementation, readerSchema, writerSchema );
+
+      // read one dataset to trigger lazy initialization before benchmarking
+      Decoder decoder = DecoderFactory.get().binaryDecoder( this.data, null );
+      reader.read(null, decoder);
     }
 
     private BenchmarkStage<? extends Object> getBenchmarkStage( String name ) {

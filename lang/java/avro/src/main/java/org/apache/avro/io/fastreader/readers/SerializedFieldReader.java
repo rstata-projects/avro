@@ -16,6 +16,11 @@ public class SerializedFieldReader<D> implements FieldReader<D>{
   }
 
   @Override
+  public boolean canReuse() {
+    return true;
+  }
+
+  @Override
   public D read(D reuse, Decoder decoder) throws IOException {
     Decoder localDecoder = DecoderFactory.get().binaryDecoder( serializedValue, null );
     return reader.read( reuse, localDecoder );
