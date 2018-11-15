@@ -32,6 +32,7 @@
 package org.apache.avro.benchmark;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.benchmark.stages.BenchmarkStage;
 import org.apache.avro.benchmark.stages.GenericNested;
@@ -44,6 +45,10 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OperationsPerInvocation;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -51,6 +56,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
 
 @State(Scope.Benchmark)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class ReaderBenchmark {
 
     enum ReaderType {
@@ -58,16 +65,16 @@ public class ReaderBenchmark {
       GENERIC_WITH_FASTREAD
     }
 
-
     @Param({ "GenericTest", "GenericStrings", "GenericNested", "GenericWithDefault", "GenericWithOutOfOrder" } )
     private String stageName;
 
-    @Param({ "Generic", "GenericFastRead" })
+    @Param({ "Generic",  "GenericFastRead" })
     private String readerImplementation;
+
 
     private int count = 1000;
 
-    private BenchmarkStage currentStage;
+    private BenchmarkStage<? extends Object> currentStage;
     private byte[] data;
     private Schema readerSchema;
     private Schema writerSchema;
@@ -93,6 +100,7 @@ public class ReaderBenchmark {
       }
     }
 
+    @SuppressWarnings("unchecked")
     private DatumReader<Object> getDatumReader( String implementation, Schema readerSchema, Schema writerSchema ) {
       switch ( implementation ) {
         case "Generic" : {
@@ -109,11 +117,14 @@ public class ReaderBenchmark {
     }
 
     @Benchmark
-    public DatumReader<Object> testReaderBuilding() {
-      return getDatumReader( readerImplementation, readerSchema, writerSchema );
+    // create reader and read ONE dataset, to trigger lazy builders
+    public Object testReaderBuilding() throws IOException {
+      Decoder decoder = DecoderFactory.get().binaryDecoder( this.data, null );
+      return getDatumReader( readerImplementation, readerSchema, writerSchema ).read( null, decoder );
     }
 
-    // @Benchmark
+    @Benchmark
+    @OperationsPerInvocation( 1000 )
     public void testRead( Blackhole blackhole ) throws IOException {
       Decoder decoder = DecoderFactory.get().binaryDecoder( this.data, null );
       Object record = null;

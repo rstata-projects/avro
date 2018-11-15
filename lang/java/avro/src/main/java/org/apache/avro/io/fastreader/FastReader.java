@@ -82,7 +82,8 @@ public class FastReader {
   private final GenericData data;
 
   /** first schema is reader schema, second is writer schema */
-  private final Map<Schema, Map<Schema, RecordReader<?>>> readerCache = new WeakIdentityHashMap<>();
+  private final Map<Schema, Map<Schema, RecordReader<?>>> readerCache = Collections.synchronizedMap( new WeakIdentityHashMap<>() );
+  private final Map<Schema, Supplier<? extends IndexedRecord>> supplierCache = Collections.synchronizedMap( new WeakIdentityHashMap<>() );
 
 
   /**
@@ -234,19 +235,22 @@ public class FastReader {
   @SuppressWarnings("unchecked")
   private <D extends IndexedRecord> RecordReader<D> getRecordReaderFromCache(Schema readerSchema,
       Schema writerSchema) {
-    synchronized ( readerCache ) {
-      Map<Schema, RecordReader<?>> writerMap =
-        readerCache.computeIfAbsent(readerSchema, k -> new WeakIdentityHashMap<>());
-      return (RecordReader<D>) writerMap.computeIfAbsent(writerSchema, k -> new RecordReader<>());
-    }
+    Map<Schema, RecordReader<?>> writerMap =
+      readerCache.computeIfAbsent(readerSchema, k -> new WeakIdentityHashMap<>());
+    return (RecordReader<D>) writerMap.computeIfAbsent(writerSchema, k -> new RecordReader<>());
+  }
+
+  private Supplier<? extends IndexedRecord> getObjectSupplier( Schema readerSchema ) {
+    return supplierCache.computeIfAbsent( readerSchema, this::createObjectSupplier );
   }
 
   @SuppressWarnings("unchecked")
-  private Supplier<? extends IndexedRecord> getObjectSupplier(Schema readerSchema) {
+  private Supplier<? extends IndexedRecord> createObjectSupplier(Schema readerSchema) {
+    // this method might later be specialized to provide improved handling for different types of data
     final Object object = data.newRecord(null, readerSchema);
     final Class<?> clazz = object.getClass();
 
-    if (IndexedRecord.class.isAssignableFrom(clazz)) {
+    if ( !GenericData.Record.class.isAssignableFrom( clazz ) && IndexedRecord.class.isAssignableFrom(clazz) ) {
       Supplier<IndexedRecord> supplier;
 
       if (SchemaConstructable.class.isAssignableFrom(clazz)) {

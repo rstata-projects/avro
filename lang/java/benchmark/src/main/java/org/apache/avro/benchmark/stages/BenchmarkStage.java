@@ -22,7 +22,6 @@ public abstract class BenchmarkStage<T> {
   public List<T> getTestData( int count ) {
     Random r = newRandom();
     List<T> records = new ArrayList<>( count );
-    Schema schema = getReaderSchema();
     for (int i = 0; i < count; i++) {
       records.add( getTestData( r ) );
     }
@@ -32,7 +31,7 @@ public abstract class BenchmarkStage<T> {
 
   public abstract T getTestData( Random rand );
 
-  @SuppressWarnings("unused")
+  @SuppressWarnings("unchecked")
   public byte[] getSerializedTestData( int count ) throws IOException {
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     Encoder encoder = EncoderFactory.get().directBinaryEncoder(output, null );
