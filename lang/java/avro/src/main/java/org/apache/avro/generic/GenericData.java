@@ -49,7 +49,7 @@ import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.fastreader.FastReader;
+import org.apache.avro.io.fastreader.FastReaderBuilder;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.util.Utf8;
@@ -72,7 +72,7 @@ public class GenericData {
   protected static final String STRING_TYPE_STRING = "String";
 
   private boolean fastReaderEnabled = Boolean.parseBoolean( System.getProperty("org.apache.avro.fastread", "false" ) );
-  private FastReader fastReader = null;
+  private FastReaderBuilder fastReader = null;
 
   private final ClassLoader classLoader;
 
@@ -108,12 +108,12 @@ public class GenericData {
   }
 
   public boolean isFastReaderEnabled() {
-    return fastReaderEnabled && FastReader.isSupportedData( this );
+    return fastReaderEnabled && FastReaderBuilder.isSupportedData( this );
   }
 
-  public FastReader getFastReader() {
+  public FastReaderBuilder getFastReader() {
     if ( fastReader == null ) {
-      FastReader localFastReader = new FastReader( this );
+      FastReaderBuilder localFastReader = new FastReaderBuilder( this );
       this.fastReader = localFastReader;
       return localFastReader;
     }

@@ -21,17 +21,17 @@ import java.io.IOException;
 import org.apache.avro.Schema;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
-import org.apache.avro.io.fastreader.FastReader;
+import org.apache.avro.io.fastreader.FastReaderBuilder;
 
 public class ReconfigurableReader<T> implements DatumReader<T> {
 
-  private final FastReader fastData;
+  private final FastReaderBuilder fastData;
   private final Schema readerSchema;
   private Schema writerSchema;
   private FieldReader<T> reader;
 
 
-  public ReconfigurableReader(FastReader fastData, Schema readerSchema, Schema writerSchema) {
+  public ReconfigurableReader(FastReaderBuilder fastData, Schema readerSchema, Schema writerSchema) {
     this.fastData = fastData;
     this.readerSchema = readerSchema;
     setSchema(writerSchema);

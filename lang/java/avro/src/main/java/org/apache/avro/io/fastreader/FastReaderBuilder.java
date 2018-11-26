@@ -82,7 +82,7 @@ import org.apache.avro.util.Utf8;
 import org.apache.avro.util.WeakIdentityHashMap;
 import org.apache.avro.util.internal.Accessor;
 
-public class FastReader {
+public class FastReaderBuilder {
 
   private static final ExecutionStep[] EMPTY_EXECUTION_STEPS = new ExecutionStep[0];
 
@@ -102,23 +102,23 @@ public class FastReader {
 
   private boolean classPropEnabled = true;
 
-  public static FastReader get() {
-    return new FastReader(GenericData.get());
+  public static FastReaderBuilder get() {
+    return new FastReaderBuilder(GenericData.get());
   }
 
-  public static FastReader getSpecific() {
-    return new FastReader(SpecificData.get());
+  public static FastReaderBuilder getSpecific() {
+    return new FastReaderBuilder(SpecificData.get());
   }
 
   public static boolean isSupportedData( GenericData data ) {
     return data.getClass() == GenericData.class || data.getClass() == SpecificData.class;
   }
 
-  public FastReader(GenericData parentData) {
+  public FastReaderBuilder(GenericData parentData) {
     this.data = parentData;
   }
 
-  public FastReader withKeyClassEnabled(boolean enabled) {
+  public FastReaderBuilder withKeyClassEnabled(boolean enabled) {
     this.keyClassEnabled = enabled;
     return this;
   }
@@ -127,7 +127,7 @@ public class FastReader {
     return this.keyClassEnabled;
   }
 
-  public FastReader withClassPropEnabled(boolean enabled) {
+  public FastReaderBuilder withClassPropEnabled(boolean enabled) {
     this.classPropEnabled = enabled;
     return this;
   }

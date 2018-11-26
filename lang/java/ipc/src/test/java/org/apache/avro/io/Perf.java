@@ -18,8 +18,8 @@
 package org.apache.avro.io;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
@@ -29,17 +29,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+
 import org.apache.avro.FooBarSpecificRecord;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
 import org.apache.avro.TypeEnum;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.reflect.ReflectData;
 import org.apache.avro.reflect.ReflectDatumReader;
 import org.apache.avro.reflect.ReflectDatumWriter;
-import org.apache.avro.specific.SpecificData;
+import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.avro.util.Utf8;
@@ -1167,7 +1169,7 @@ public class Perf {
 
   static class GenericTest extends BasicTest {
     GenericRecord[] sourceData = null;
-    protected final DatumReader<Object> reader;
+    protected final GenericDatumReader<Object> reader;
     public GenericTest() throws IOException {
       this("Generic");
     }
@@ -1178,11 +1180,11 @@ public class Perf {
       super(name, writerSchema, 12);
       reader = newReader();
     }
-    protected DatumReader<Object> getReader() {
+    protected GenericDatumReader<Object> getReader() {
       return reader;
     }
-    protected DatumReader<Object> newReader() {
-      return GenericData.get().createDatumReader(schema);
+    protected GenericDatumReader<Object> newReader() {
+      return new GenericDatumReader<>(schema);
     }
     @Override
     void genSourceData() {
@@ -1340,8 +1342,8 @@ public class Perf {
       isWriteTest = false;
     }
     @Override
-    protected DatumReader<Object> newReader() {
-      return GenericData.get().createDatumReader(schema, getReaderSchema());
+    protected GenericDatumReader<Object> newReader() {
+      return new GenericDatumReader<>(schema, getReaderSchema());
     }
     protected abstract Schema getReaderSchema();
   }
@@ -1393,7 +1395,7 @@ public class Perf {
       isWriteTest = false;
     }
     @Override
-    protected DatumReader<Object> getReader() {
+    protected GenericDatumReader<Object> getReader() {
       return newReader();
     }
   }
@@ -1404,7 +1406,7 @@ public class Perf {
       isWriteTest = false;
     }
     @Override
-    protected DatumReader<Object> getReader() {
+    protected GenericDatumReader<Object> getReader() {
       return newReader();
     }
     @Override
@@ -1414,7 +1416,7 @@ public class Perf {
   }
 
   static abstract class SpecificTest<T extends SpecificRecordBase> extends BasicTest {
-    protected final DatumReader<T> reader;
+    protected final SpecificDatumReader<T> reader;
     protected final SpecificDatumWriter<T> writer;
     private Object[] sourceData;
 
@@ -1423,14 +1425,14 @@ public class Perf {
       reader = newReader();
       writer = newWriter();
     }
-    protected DatumReader<T> getReader() {
+    protected SpecificDatumReader<T> getReader() {
       return reader;
     }
-    protected DatumWriter<T> getWriter() {
+    protected SpecificDatumWriter<T> getWriter() {
       return writer;
     }
-    protected DatumReader<T> newReader() {
-      return SpecificData.get().createDatumReader( schema );
+    protected SpecificDatumReader<T> newReader() {
+      return new SpecificDatumReader<>(schema);
     }
     protected SpecificDatumWriter<T> newWriter() {
       return new SpecificDatumWriter<>(schema);
