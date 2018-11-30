@@ -32,6 +32,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 import org.apache.avro.AvroMissingFieldException;
 import org.apache.avro.AvroRuntimeException;
@@ -1180,4 +1182,69 @@ public class GenericData {
     return new GenericData.Record(schema);
   }
 
+  private Map<Schema,Class> stringClassCache
+    = Collections.synchronizedMap(new IdentityHashMap<>());
+
+  /**
+   * Return the class to be used to represent a string or map-key schema.
+   * By default uses {@link GenericData#STRING_PROP} to determine
+   * whether {@link Utf8} or {@link String} is used.  Subclasses may
+   * override for alternate representations.
+   */
+  public Class getStringClass(Schema s) {
+    Class c = stringClassCache.get(s);
+    if (c == null) {
+      c = findStringClass(s);
+      stringClassCache.put(s, c);
+    }
+    return c;
+  }
+
+  /**
+   * Called by {@link getStringClass} to get the name of the class to
+   * used to represent a string.  By default uses {@link
+   * GenericData#STRING_PROP} to determine whether {@link Utf8} or
+   * {@link String} is used.  Subclasses are better off overriding
+   * this method rather than {@link getStringClass} directly.
+   */
+  protected Class findStringClass(Schema schema) {
+    String name = schema.getProp(GenericData.STRING_PROP);
+    if (name == null) return CharSequence.class;
+
+    switch (GenericData.StringType.valueOf(name)) {
+      case String:
+        return String.class;
+      default:
+        return CharSequence.class;
+    }
+  }
+
+  private static Map<Class,Constructor> stringCtorCache
+    = Collections.synchronizedMap(new HashMap<>());
+
+  /**
+   * Utility function for instantiating an instance of class
+   * <tt>c</tt> calling a constructor that takes a (single) string as
+   * an argument.
+   */
+  @SuppressWarnings("unchecked")
+  public static Object newInstanceFromString(Class c, String s) {
+    try {
+      Constructor ctor = stringCtorCache.get(c);
+      if (ctor == null) {
+        ctor = c.getDeclaredConstructor(String.class);
+        ctor.setAccessible(true);
+        stringCtorCache.put(c, ctor);
+      }
+      return ctor.newInstance(s);
+    } catch (NoSuchMethodException e) {
+      throw new AvroRuntimeException(e);
+    } catch (InstantiationException e) {
+      throw new AvroRuntimeException(e);
+    } catch (IllegalAccessException e) {
+      throw new AvroRuntimeException(e);
+    } catch (InvocationTargetException e) {
+      throw new AvroRuntimeException(e);
+    }
+  }
 }

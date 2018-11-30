@@ -19,12 +19,9 @@ package org.apache.avro.generic;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Collection;
 import java.nio.ByteBuffer;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Conversion;
@@ -427,57 +424,28 @@ public class GenericDatumReader<D> implements DatumReader<D> {
    * Utf8#Utf8(String)}.*/
   protected Object createString(String value) { return new Utf8(value); }
 
-  /** Determines the class to used to represent a string Schema.  By default
-   * uses {@link GenericData#STRING_PROP} to determine whether {@link Utf8} or
-   * {@link String} is used.  Subclasses may override for alternate
-   * representations.
+  /**
+   * Deprecated: moved to {@link GenericData}.
    */
+  @Deprecated
   protected Class findStringClass(Schema schema) {
-    String name = schema.getProp(GenericData.STRING_PROP);
-    if (name == null) return CharSequence.class;
-
-    switch (GenericData.StringType.valueOf(name)) {
-      case String:
-        return String.class;
-      default:
-        return CharSequence.class;
-    }
+    return data.findStringClass(schema);
   }
 
-  private Map<Schema,Class> stringClassCache =
-    new IdentityHashMap<>();
-
+  /**
+   * Deprecated: moved to {@link GenericData}.
+   */
+  @Deprecated
   private Class getStringClass(Schema s) {
-    Class c = stringClassCache.get(s);
-    if (c == null) {
-      c = findStringClass(s);
-      stringClassCache.put(s, c);
-    }
-    return c;
+    return data.getStringClass(s);
   }
 
-  private final Map<Class,Constructor> stringCtorCache =
-    new HashMap<>();
-
-  @SuppressWarnings("unchecked")
+  /**
+   * Deprecated: moved to {@link GenericData}.
+   */
+  @Deprecated
   protected Object newInstanceFromString(Class c, String s) {
-    try {
-      Constructor ctor = stringCtorCache.get(c);
-      if (ctor == null) {
-        ctor = c.getDeclaredConstructor(String.class);
-        ctor.setAccessible(true);
-        stringCtorCache.put(c, ctor);
-      }
-      return ctor.newInstance(s);
-    } catch (NoSuchMethodException e) {
-      throw new AvroRuntimeException(e);
-    } catch (InstantiationException e) {
-      throw new AvroRuntimeException(e);
-    } catch (IllegalAccessException e) {
-      throw new AvroRuntimeException(e);
-    } catch (InvocationTargetException e) {
-      throw new AvroRuntimeException(e);
-    }
+    return data.newInstanceFromString(c, s);
   }
 
   /** Called to read byte arrays.  Subclasses may override to use a different
