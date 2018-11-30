@@ -42,6 +42,7 @@ public class GenericDatumReader<D> implements DatumReader<D> {
   private Schema expected;
 
   private DatumReader<D> fastDatumReader = null;
+  private FastGenericDatumReader<D> fast2DatumReader = null;
 
   private ResolvingDecoder creatorResolver = null;
   private final Thread creator;
@@ -82,7 +83,7 @@ public class GenericDatumReader<D> implements DatumReader<D> {
     this.actual = writer;
     if (expected == null) {
       expected = actual;
-    }
+    } else if (fast2DatumReader != null) fast2DatumReader.setSchema(writer);
     creatorResolver = null;
     fastDatumReader = null;
   }
@@ -95,6 +96,7 @@ public class GenericDatumReader<D> implements DatumReader<D> {
     this.expected = reader;
     creatorResolver = null;
     fastDatumReader = null;
+    fast2DatumReader = null;
   }
 
   private static final ThreadLocal<Map<Schema,Map<Schema,ResolvingDecoder>>>
@@ -141,7 +143,11 @@ public class GenericDatumReader<D> implements DatumReader<D> {
   @Override
   @SuppressWarnings("unchecked")
   public D read(D reuse, Decoder in) throws IOException {
-    if ( data.isFastReaderEnabled() ) {
+    if (data.isFast2ReaderEnabled()) {
+      if (fast2DatumReader == null)
+        fast2DatumReader = new FastGenericDatumReader(actual, expected, data);
+      return fast2DatumReader.read(reuse, in);
+    } else if ( data.isFastReaderEnabled() ) {
       DatumReader<D> localFastDatumReader = this.fastDatumReader;
       if ( fastDatumReader == null ) {
         localFastDatumReader = data.getFastReader().createDatumReader( actual, expected );

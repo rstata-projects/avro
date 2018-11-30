@@ -74,6 +74,8 @@ public class GenericData {
   protected static final String STRING_TYPE_STRING = "String";
 
   private boolean fastReaderEnabled = Boolean.parseBoolean( System.getProperty("org.apache.avro.fastread", "false" ) );
+  private boolean fast2ReaderEnabled
+    = Boolean.parseBoolean( System.getProperty("org.apache.avro.fastread2", "false" ) );
   private FastReaderBuilder fastReader = null;
 
   private final ClassLoader classLoader;
@@ -111,6 +113,10 @@ public class GenericData {
 
   public boolean isFastReaderEnabled() {
     return fastReaderEnabled && FastReaderBuilder.isSupportedData( this );
+  }
+
+  public boolean isFast2ReaderEnabled() {
+    return fast2ReaderEnabled && FastReaderBuilder.isSupportedData( this );
   }
 
   public FastReaderBuilder getFastReader() {

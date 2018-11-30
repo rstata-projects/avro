@@ -150,10 +150,14 @@
               </goals>
               <configuration>
                 <systemPropertyVariables>
+<!--
                   <org.apache.avro.specific.use_custom_coders>true</org.apache.avro.specific.use_custom_coders>
+-->
+<org.apache.avro.fastread2>true</org.apache.avro.fastread2>
                 </systemPropertyVariables>
               </configuration>
             </execution>
+<!--
             <execution>
               <id>test-with-fast-readers</id>
               <phase>test</phase>
@@ -166,6 +170,7 @@
                 </systemPropertyVariables>
               </configuration>
             </execution>
+-->
           </executions>
           <configuration>
             <includes>
