@@ -435,4 +435,33 @@ public class SpecificData extends GenericData {
       .directBinaryEncoder(new ExternalizableOutput(out), null);
   }
 
+  /**
+   * Looks at {@link CLASS_PROP} and {@link KEY_CLASS_PROP} (the later
+   * for maps) before defaulting to {@link GenericData}'s
+   * implementation.
+   */
+  @Override
+  protected Class findStringClass(Schema schema) {
+    Class stringClass = null;
+    switch (schema.getType()) {
+    case STRING:
+      stringClass = getPropAsClass(schema, SpecificData.CLASS_PROP);
+      break;
+    case MAP:
+      stringClass = getPropAsClass(schema, SpecificData.KEY_CLASS_PROP);
+      break;
+    }
+    if (stringClass != null) return stringClass;
+    return super.findStringClass(schema);
+  }
+
+  private Class getPropAsClass(Schema schema, String prop) {
+    String name = schema.getProp(prop);
+    if (name == null) return null;
+    try {
+      return ClassUtils.forName(getClassLoader(), name);
+    } catch (ClassNotFoundException e) {
+      throw new AvroRuntimeException(e);
+    }
+  }
 }

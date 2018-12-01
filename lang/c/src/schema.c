@@ -575,6 +575,16 @@ avro_schema_enum_symbol_append(const avro_schema_t enum_schema,
 }
 
 int
+avro_schema_enum_number_of_symbols(const avro_schema_t enum_schema)
+{
+	check_param(EINVAL, is_avro_schema(enum_schema), "enum schema");
+	check_param(EINVAL, is_avro_enum(enum_schema), "enum schema");
+
+	struct avro_enum_schema_t *enump = avro_schema_to_enum(enum_schema);
+	return enump->symbols->num_entries;
+}
+
+int
 avro_schema_record_field_append(const avro_schema_t record_schema,
 				const char *field_name,
 				const avro_schema_t field_schema)
@@ -919,10 +929,6 @@ avro_schema_from_json_t(json_t *json, avro_schema_t *schema,
 				return EINVAL;
 			}
 			num_fields = json_array_size(json_fields);
-			if (num_fields == 0) {
-				avro_set_error("Record type must have at least one field");
-				return EINVAL;
-			}
 			fullname = json_string_value(json_name);
 			if (!fullname) {
 				avro_set_error("Record type must have a \"name\"");
