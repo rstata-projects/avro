@@ -46,10 +46,9 @@ import org.apache.avro.util.Utf8;
   *
   * When traversing an Array or Map in the reader schema, the decoder
   * should call {@link getElementAdvancer} to retrieve the advancer
-  * object for the contained element-schema, value-schema, or non-null
-  * schema respectively. ({@link next} cannot be called on {@link
-  * Advancer.Record} objects -- decoders must decode them field by
-  * field.)
+  * object for the contained element-schema or value-schema.  See the
+  * JavaDoc for {@link getElementAdvancer} for instructions on how to
+  * decode these types.
   *
   * For unions, the decoder should call {@link nextIndex} to fetch the
   * branch and then {@link getBranchAdvancer} to get the advancer of
@@ -57,11 +56,11 @@ import org.apache.avro.util.Utf8;
   * index, pick the right advancer based on the index, and then read
   * and return the actual value.)
   *
-  * Traversing an record is more involved.  The decoder should call
-  * {@link getRecordAdvancer} and proceed as described in the
-  * documentation for {@link Advancer.Record}.  ({@link next} cannot
-  * be called on {@link Advancer.Record} objects -- decoders must
-  * decode them field by field.)
+  * Traversing records, arrays, and maps is more involved.  In the
+  * case of an array or map, call {@link getContainerAdvancer} and
+  * proceed as described in the documentation for {@link
+  * Advancer.Container}.  For records, best to just look at the
+  * implementation of {@link GenericDatumReader2}.
   **/
 abstract class Advancer {
   protected Exception exception() {
@@ -100,12 +99,6 @@ abstract class Advancer {
     return nextFixed(in, bytes, 0, bytes.length);
   }
 
-  /** Access to contained advancer (for Array and Map types). */
-  public Advancer getElementAdvancer(Decoder in) throws IOException {
-    exception();
-    return null;
-  }
-
   /** Get index for a union. */
   public int nextIndex(Decoder in) throws IOException { exception(); return 0; }
 
@@ -116,7 +109,12 @@ abstract class Advancer {
     return null;
   }
 
-  /** Access to contained advancer (for Array, Map, and Union types). */
+  /** Access to advancer for array or map type. */
+  public Container getContainerAdvancer(Decoder in) throws IOException {
+    exception();
+    return null;
+  }
+  /** Access to advancer for record type. */
   public Record getRecordAdvancer(Decoder in) throws IOException {
     exception();
     return null;
@@ -165,7 +163,9 @@ abstract class Advancer {
       else return new EnumWithAdjustments(e.adjustments);
 
     case CONTAINER:
-      return new Container(Advancer.from(((Resolver.Container)a).elementAction));
+        Advancer ea = Advancer.from(((Resolver.Container)a).elementAction);
+        if (a.writer.getType() == Schema.Type.ARRAY) return new ArrayContainer(ea);
+        else return new MapContainer(ea);
 
     case RECORD:
       return Advancer.Record.from((Resolver.RecordAdjust)a);
@@ -219,14 +219,46 @@ abstract class Advancer {
     }
   }
 
-  /** Used for Array, Map, and Union.  In case of Union, since we only
-    * support "nullable" unions (ie, two-branch unions in which one
-    * branch is null), the element advancer is for the non-null branch
-    * of the union. */
-  private static class Container extends Advancer {
+  /** Used for Array and Map.  The following fragment illustrates how
+    * to use to read an array of int:
+    *
+    * <pre>
+    *   Advancer.Container c = advancer.getContainerAdvancer(in);
+    *   Advancer.Container ec = c.getElementAdvancer(in);
+    *   for(long i = c.firstChunk(in); i != 0; i = c.nextChunk(in)) {
+    *     for (long j = 0; j < i; j++) {
+    *       int element = c.readInt(in);
+    *       // .. do something with this element
+    *     }
+    *   }
+    * </pre>
+    * See the implementation of {@link GenericDatumReader2} for more
+    * illustrations. */
+  public abstract static class Container extends Advancer {
     private final Advancer elementAdvancer;
     public Container(Advancer elementAdvancer) { this.elementAdvancer = elementAdvancer; }
+    public Container getContainerAdvancer(Decoder in) { return this; }
     public Advancer getElementAdvancer(Decoder in) { return elementAdvancer; }
+    public abstract long firstChunk(Decoder in) throws IOException;
+    public abstract long nextChunk(Decoder in) throws IOException;
+  }
+
+  private static class ArrayContainer extends Container {
+    private final Advancer elementAdvancer;
+    public ArrayContainer(Advancer elementAdvancer) { super(elementAdvancer); }
+    public long firstChunk(Decoder in) throws IOException
+      { return in.readArrayStart(); }
+    public long nextChunk(Decoder in) throws IOException
+      { return in.arrayNext(); }
+  }
+
+  private static class MapContainer extends Container {
+    private final Advancer elementAdvancer;
+    public MapContainer(Advancer elementAdvancer) { super(elementAdvancer); }
+    public long firstChunk(Decoder in) throws IOException
+      { return in.readMapStart(); }
+    public long nextChunk(Decoder in) throws IOException
+      { return in.mapNext(); }
   }
 
   //// The following set of subclasses are for when there is no
@@ -449,12 +481,12 @@ abstract class Advancer {
     public byte[] nextFixed(Decoder in, byte[] bytes, int start, int length) throws IOException
       { return b(in).nextFixed(in, bytes, start, length); }
 
-    public Advancer getElementAdvancer(Decoder in) throws IOException
-      { return b(in).getElementAdvancer(in); }
-
     public int nextIndex(Decoder in) throws IOException { return b(in).nextIndex(in); }
     public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException
       { return b(in).getBranchAdvancer(in, branch); }
+
+    public Container getContainerAdvancer(Decoder in) throws IOException
+      { return b(in).getContainerAdvancer(in); }
 
     public Record getRecordAdvancer(Decoder in) throws IOException
       { return b(in).getRecordAdvancer(in); }
@@ -630,14 +662,14 @@ abstract class Advancer {
     public byte[] nextFixed(Decoder in, byte[] bytes, int start, int len) throws IOException
       { ignore(toSkip, in); return field.nextFixed(in, bytes, start, len); }
 
-    public Advancer getElementAdvancer(Decoder in) throws IOException
-      { ignore(toSkip, in); return field.getElementAdvancer(in); }
-
     public int nextIndex(Decoder in) throws IOException
       { ignore(toSkip, in); return field.nextIndex(in); }
 
     public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException
       { ignore(toSkip, in); return field.getBranchAdvancer(in, branch); }
+
+    public Container getContainerAdvancer(Decoder in) throws IOException
+      { ignore(toSkip, in); return field.getContainerAdvancer(in); }
 
     public Record getRecordAdvancer(Decoder in) throws IOException
       { ignore(toSkip, in); return field.getRecordAdvancer(in); }
