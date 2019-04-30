@@ -19,17 +19,21 @@ package org.apache.avro.generic;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import org.apache.avro.Resolver;
 import org.apache.avro.Schema;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 
-public class GenericDatumReader2<D> implements DatumReader<D> {
+public class GenericDatumReader2<D extends IndexedRecord> implements DatumReader<D> {
+  private final Schema reader, writer;
   private final Advancer.Record advancer;
   private final GenericData data;
 
-  private GenericDatumReader2(Advancer.Record a, GenericData d) {
+  private GenericDatumReader2(Schema writer, Schema reader, Advancer.Record a, GenericData d) {
+    this.writer = writer;
+    this.reader = reader;
     advancer = a;
     data = d;
   }
@@ -38,15 +42,18 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     // TODO: add caching
     Resolver.Action a = Resolver.resolve(writer, reader, data);
     Advancer.Record r = (Advancer.Record)Advancer.from(a);
-    return new GenericDatumReader2(r, data);
+    return new GenericDatumReader2(writer, reader, r, data);
   }
 
   public D read(D reuse, Decoder in) throws IOException {
+    List<Schema.Field> wf = writer.getFields();
+    if (reuse == null) reuse = null; // FIXME
     for (int i = 0; i < advancer.advancers.length; i++) {
       int p = advancer.readerOrder[i].pos();
-      reuse.set(p, read(in, null, advancer.advancers[i]));
+      reuse.put(p, read(null, wf.get(i).schema(), advancer.advancers[i], in));
     }
     advancer.done(in);
+    return reuse;
   }
 
   public Object read(Object reuse, Schema expected, Advancer a, Decoder in)
@@ -62,7 +69,18 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     case STRING: return (String) a.nextString(in);
     case BYTES: return a.nextBytes(in, (ByteBuffer)reuse);
     case FIXED:
-    case ARRAY:
+    case ARRAY: {
+      List result = null; // FIXME -- use GenericData methods here...
+      Advancer.Container c = advancer.getContainerAdvancer(in);
+      Advancer ec = c.getElementAdvancer(in);
+      Schema es = expected.getElementType();
+      for(long i = c.firstChunk(in); i != 0; i = c.nextChunk(in)) {
+        for (long j = 0; j < i; j++) {
+          result.add(read(null, es, ec, in));
+        }
+      }
+    }
+        
     case MAP:
     case RECORD:
     case UNION:

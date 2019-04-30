@@ -223,7 +223,7 @@ abstract class Advancer {
     * to use to read an array of int:
     *
     * <pre>
-    *   Advancer.Container c = advancer.getContainerAdvancer(in);
+    *   Advancer c = advancer.getContainerAdvancer(in);
     *   Advancer.Container ec = c.getElementAdvancer(in);
     *   for(long i = c.firstChunk(in); i != 0; i = c.nextChunk(in)) {
     *     for (long j = 0; j < i; j++) {
@@ -244,8 +244,7 @@ abstract class Advancer {
   }
 
   private static class ArrayContainer extends Container {
-    private final Advancer elementAdvancer;
-    public ArrayContainer(Advancer elementAdvancer) { super(elementAdvancer); }
+    public ArrayContainer(Advancer ea) { super(ea); }
     public long firstChunk(Decoder in) throws IOException
       { return in.readArrayStart(); }
     public long nextChunk(Decoder in) throws IOException
@@ -253,8 +252,7 @@ abstract class Advancer {
   }
 
   private static class MapContainer extends Container {
-    private final Advancer elementAdvancer;
-    public MapContainer(Advancer elementAdvancer) { super(elementAdvancer); }
+    public MapContainer(Advancer ea) { super(ea); }
     public long firstChunk(Decoder in) throws IOException
       { return in.readMapStart(); }
     public long nextChunk(Decoder in) throws IOException
