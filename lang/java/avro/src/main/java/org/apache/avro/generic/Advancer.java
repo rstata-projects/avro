@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.avro.specific;
+package org.apache.avro.generic;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -126,8 +126,10 @@ abstract class Advancer {
   ////// Here's the builder for Advancer trees.  The subclasses used by
   ////// this implementation are found below.
 
-  /** Build an {@link Advancer} tree that for a given {@link
-   * Resolver.Action} tree. */
+  /** Build a {@link Advancer} tree that for a given {@link
+    * Resolver.Action} tree.  If input argument (<code>a</code>) is a
+    * {@link Resolver.RecordAdjust}, the result is guaranteed to be a
+    * {@link Advancer.Record}. */
   public static Advancer from(Resolver.Action a) {
     switch (a.type) {
     case DO_NOTHING:
@@ -553,7 +555,7 @@ abstract class Advancer {
         Schema[] toSkip = collectSkips(ra.fieldActions, i);
         i += toSkip.length;
         Advancer fieldAdv = Advancer.from(ra.fieldActions[i++]);
-        if (toSkip.length != 0) fieldAdv = new RecordField(fieldAdv, toSkip);
+        if (toSkip.length != 0) fieldAdv = new RecordField(toSkip, fieldAdv);
         fieldAdvs[nrf] = fieldAdv;
       }
 
@@ -587,133 +589,62 @@ abstract class Advancer {
   }
 
   private static class RecordField extends Advancer {
+    private final Schema[] toSkip;
     private final Advancer field;
-    private final Schema[] after;
-    public RecordField(Advancer field, Schema[] after) {
-      this.field = field;
-      this.after = after;
-    }
-
-    public Object next(Decoder in) throws IOException
-      { Object r = field.next(in); ignore(after, in); return r; }
-
-    public Object nextNull(Decoder in) throws IOException
-      { field.nextNull(in); ignore(after, in); return null; }
-
-    public boolean nextBoolean(Decoder in) throws IOException
-      { boolean r = field.nextBoolean(in); ignore(after, in); return r; }
-
-    public int nextInt(Decoder in) throws IOException
-      { int r = field.nextInt(in); ignore(after, in); return r; }
-
-    public long nextLong(Decoder in) throws IOException
-      { long r = field.nextLong(in); ignore(after, in); return r; }
-
-    public float nextFloat(Decoder in) throws IOException
-      { float r = field.nextFloat(in); ignore(after, in); return r; }
-
-    public double nextDouble(Decoder in) throws IOException
-      { double r = field.nextDouble(in); ignore(after, in); return r; }
-
-    public int nextEnum(Decoder in) throws IOException
-      { int r = field.nextEnum(in); ignore(after, in); return r; }
-
-    public String nextString(Decoder in) throws IOException
-      { String r = field.nextString(in); ignore(after, in); return r; }
-
-    public Utf8 nextString(Decoder in, Utf8 old) throws IOException {
-      Utf8 r = field.nextString(in,old);
-      ignore(after, in);
-      return r;
-    }
-
-    public ByteBuffer nextBytes(Decoder in, ByteBuffer old) throws IOException {
-      ByteBuffer r = field.nextBytes(in,old);
-      ignore(after, in);
-      return r;
-    }
-
-    public byte[] nextFixed(Decoder in, byte[] bytes, int start, int len) throws IOException {
-      byte[] r = field.nextFixed(in, bytes, start, len);
-      ignore(after, in);
-      return r;
-    }
-
-    // TODO: THIS DOESN'T WORK!!
-    public Advancer getElementAdvancer(Decoder in) throws IOException
-      { Advancer r = field.getElementAdvancer(in); ignore(after, in); return r; }
-
-    // TODO: THIS DOESN'T WORK!!
-    public int nextIndex(Decoder in) throws IOException
-      { int r = field.nextIndex(in); ignore(after, in); return r; }
-
-    // TODO: THIS DOESN'T WORK!!
-    public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException
-      { Advancer r = field.getBranchAdvancer(in, branch); ignore(after, in); return r; }
-
-    // TODO: THIS DOESN'T WORK!!
-    public Record getRecordAdvancer(Decoder in) throws IOException
-      { Record r = field.getRecordAdvancer(in); ignore(after, in); return r; }
-  }
-
-  private static class RecordFieldWithBefore extends Advancer {
-    private final Schema[] before;
-    private final Advancer field;
-    public RecordFieldWithBefore(Schema[] before, Advancer field) {
-      this.before = before;
+    public RecordField(Schema[] toSkip, Advancer field) {
+      this.toSkip = toSkip;
       this.field = field;
     }
 
     public Object next(Decoder in) throws IOException
-      { ignore(before, in); return field.next(in); }
+      { ignore(toSkip, in); return field.next(in); }
 
     public Object nextNull(Decoder in) throws IOException
-      { ignore(before, in); return field.nextNull(in); }
+      { ignore(toSkip, in); return field.nextNull(in); }
 
     public boolean nextBoolean(Decoder in) throws IOException
-      { ignore(before, in); return field.nextBoolean(in); }
+      { ignore(toSkip, in); return field.nextBoolean(in); }
 
     public int nextInt(Decoder in) throws IOException
-      { ignore(before, in); return field.nextInt(in); }
+      { ignore(toSkip, in); return field.nextInt(in); }
 
     public long nextLong(Decoder in) throws IOException
-      { ignore(before, in); return field.nextLong(in); }
+      { ignore(toSkip, in); return field.nextLong(in); }
 
     public float nextFloat(Decoder in) throws IOException
-      { ignore(before, in); return field.nextFloat(in); }
+      { ignore(toSkip, in); return field.nextFloat(in); }
 
     public double nextDouble(Decoder in) throws IOException
-      { ignore(before, in); return field.nextDouble(in); }
+      { ignore(toSkip, in); return field.nextDouble(in); }
 
     public int nextEnum(Decoder in) throws IOException
-      { ignore(before, in); return field.nextEnum(in); }
+      { ignore(toSkip, in); return field.nextEnum(in); }
 
     public String nextString(Decoder in) throws IOException
-      { ignore(before, in); return field.nextString(in); }
+      { ignore(toSkip, in); return field.nextString(in); }
 
     public Utf8 nextString(Decoder in, Utf8 old) throws IOException
-      { ignore(before, in); return field.nextString(in, old); }
+      { ignore(toSkip, in); return field.nextString(in, old); }
 
     public ByteBuffer nextBytes(Decoder in, ByteBuffer old) throws IOException
-      { ignore(before, in); return field.nextBytes(in, old); }
+      { ignore(toSkip, in); return field.nextBytes(in, old); }
 
     public byte[] nextFixed(Decoder in, byte[] bytes, int start, int len) throws IOException
-      { ignore(before, in); return field.nextFixed(in, bytes, start, len); }
+      { ignore(toSkip, in); return field.nextFixed(in, bytes, start, len); }
 
     public Advancer getElementAdvancer(Decoder in) throws IOException
-      { ignore(before, in); return field.getElementAdvancer(in); }
+      { ignore(toSkip, in); return field.getElementAdvancer(in); }
 
     public int nextIndex(Decoder in) throws IOException
-      { ignore(before, in); return field.nextIndex(in); }
+      { ignore(toSkip, in); return field.nextIndex(in); }
 
     public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException
-      { ignore(before, in); return field.getBranchAdvancer(in, branch); }
+      { ignore(toSkip, in); return field.getBranchAdvancer(in, branch); }
 
     public Record getRecordAdvancer(Decoder in) throws IOException
-      { ignore(before, in); return field.getRecordAdvancer(in); }
+      { ignore(toSkip, in); return field.getRecordAdvancer(in); }
   }
 
-  
   private static class Default extends Advancer {
     protected final Object val;
     private Default(Object val) { this.val = val; }
