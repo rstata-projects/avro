@@ -163,10 +163,11 @@ public class Resolver {
   }
 
   /**
-   * In this case, there's nothing to be done for resolution: the two schemas are
-   * effectively the same. This action will be generated <em>only</em> for
-   * primitive types and fixed types, and not for any other kind of schema.
-   */
+   * In this case, there's nothing to be done for resolution: the two
+   * schemas are effectively the same. This action will be generated
+   * <em>only</em> for primitive types (incl. STRING and BYTES) and
+   * also for fixed types, and <not>not</not for any other kind of
+   * schema. */
   public static class DoNothing extends Action {
     public DoNothing(Schema w, Schema r, GenericData d) {
       super(w, r, d, Action.Type.DO_NOTHING);
@@ -249,8 +250,18 @@ public class Resolver {
    * promotion"), and whent the promotion is one allowed by the Avro spec.
    */
   public static class Promote extends Action {
-    private Promote(Schema w, Schema r, GenericData d) {
+    public static enum Promotions {
+      INT2LONG, INT2FLOAT, INT2DOUBLE,
+      LONG2FLOAT, LONG2DOUBLE, FLOAT2DOUBLE,
+      STRING2BYTES, BYTES2STRING
+    }
+
+    /** The exact promotion being represented. */
+    public final Promotions promotion;
+
+    private Promote(Schema w, Schema r, Promotions p, GenericData d) {
       super(w, r, d, Action.Type.PROMOTE);
+      this.promotion = p;
     }
 
     /**
@@ -264,62 +275,49 @@ public class Resolver {
      *                                  not different.
      */
     public static Action resolve(Schema w, Schema r, GenericData d) {
-      if (isValid(w, r))
-        return new Promote(w, r, d);
+      Promotions p = findPromotion(w, r);
+      if (p != null)
+        return new Promote(w, r, p, d);
       else
         return new ErrorAction(w, r, d, ErrorType.INCOMPATIBLE_SCHEMA_TYPES);
     }
 
     /**
-     * Returns true iff <tt>w</tt> and <tt>r</tt> are both primitive types and
-     * either they are the same type or <tt>w</tt> is promotable to <tt>r</tt>.
-     * Should
+     * Returns the {@link Promtion} that would resolve schema
+     * <code>w</code> against <code>r</code>, or null if there is no
+     * such promotion.
      */
-    public static boolean isValid(Schema w, Schema r) {
+    private static Promotions findPromotion(Schema w, Schema r) {
       if (w.getType() == r.getType())
         throw new IllegalArgumentException("Only use when reader and writer are different.");
       Schema.Type wt = w.getType();
       switch (r.getType()) {
-      case INT:
-        switch (wt) {
-        case INT:
-          return true;
-        }
-        break;
       case LONG:
         switch (wt) {
-        case INT:
-        case LONG:
-          return true;
+        case INT: return Promotions.INT2LONG;
         }
         break;
       case FLOAT:
         switch (wt) {
-        case INT:
-        case LONG:
-        case FLOAT:
-          return true;
+        case INT: return Promotions.INT2FLOAT;
+        case LONG: return Promotions.LONG2FLOAT;
         }
         break;
       case DOUBLE:
         switch (wt) {
-        case INT:
-        case LONG:
-        case FLOAT:
-        case DOUBLE:
-          return true;
+        case INT: return Promotions.INT2DOUBLE;
+        case LONG: return Promotions.LONG2DOUBLE;
+        case FLOAT: return Promotions.FLOAT2DOUBLE;
         }
         break;
       case BYTES:
+        if (wt == Schema.Type.STRING) return Promotions.STRING2BYTES;
+        break;
       case STRING:
-        switch (wt) {
-        case STRING:
-        case BYTES:
-          return true;
-        }
+        if (wt == Schema.Type.STRING) return Promotions.BYTES2STRING;
         break;
       }
-      return false;
+      return null;
     }
   }
 
@@ -424,11 +422,13 @@ public class Resolver {
     public final Action[] fieldActions;
 
     /**
-     * Contains (all of) the reader's fields. The first <i>n</i> of these are the
-     * fields that will be read from the writer: these <i>n</i> are in the order
-     * dictated by writer's schema. The remaining <i>m</i> fields will be read from
-     * default values (actions for these default values are found in
-     * {@link RecordAdjust#defaults}.
+     * Contains (all of) the reader's fields. The first {@link
+     * firstDefault} of these are the fields that will be read from
+     * the writer: these are in the order dictated by writer's
+     * schema. The remaining fields from {@link firstDefault} to the
+     * end of the array will be read from default values (actions for
+     * these default values are found in {@link defaults}.  Note that
+     * the default fields are in the order of the reader's schema.
      */
     public final Field[] readerOrder;
 
