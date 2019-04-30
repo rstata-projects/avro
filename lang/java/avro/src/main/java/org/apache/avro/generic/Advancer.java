@@ -470,9 +470,6 @@ abstract class Advancer {
     public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException {
       return branches[branch];
     }
-    public Object next(Decoder in) throws IOException {
-      return branches[in.readIndex()].next(in);
-    }
   }
 
   private static class ReaderUnion extends Advancer {
@@ -484,9 +481,6 @@ abstract class Advancer {
       if (b != this.branch)
           throw new IllegalArgumentException("Branch much be " + branch + ", got " + b);
       return advancer;
-    }
-    public Object next(Decoder in) throws IOException {
-      return advancer.next(in);
     }
   }
 
@@ -503,27 +497,29 @@ abstract class Advancer {
     * reader's fields.  Thus, the following is how to read a record:
     * <pre>
     *    for (int i = 0; i < a.advancers.length; i++) {
-    *      dataum.set(a.readerOrder[i], a.advancers[i].next());
+    *      dataum.set(a.readerOrder[i].pos(), a.advancers[i].next(in));
     *    }
-    *    a.done();
+    *    a.done(in);
     * </pre>
     * Note that a decoder <em>must</em> call {@link done} after interpreting
     * all the elemnts in {@link advancers}.
     *
     * As a convenience, {@link inOrder} is set to true iff the reader
-    * and writer order agrees (i.e., iff <code>readerOrder[i] ==
+    * and writer order agrees (i.e., iff <code>readerOrder[i].pos() ==
     * i</code> for all i).  Generated code can use this to optimize this
     * common case. */
   public static class Record extends Advancer {
     public final Advancer[] advancers;
     private Schema[] finalSkips;
-    public final int[] readerOrder;
+    public final Schema.Field[] readerOrder;
     public final boolean inOrder;
 
-    private Record(Advancer[] advancers, Schema[] finalSkips, int[] order, boolean inOrder) {
+    private Record(Advancer[] advancers, Schema[] finalSkips,
+                   Schema.Field[] readerOrder, boolean inOrder)
+    {
       this.advancers = advancers;
       this.finalSkips = finalSkips;
-      this.readerOrder = order;
+      this.readerOrder = readerOrder;
       this.inOrder = inOrder;
     }
 
@@ -540,8 +536,7 @@ abstract class Advancer {
       /** Special subclasses of Advance will encapsulate skipping. */
 
       // Compute the "readerOrder" argument to Advancer.Record constructor
-      int[] readOrder = new int[ra.readerOrder.length];
-      for (int i = 0; i < readOrder.length; i++) readOrder[i] = ra.readerOrder[i].pos();
+      Schema.Field[] readOrder = ra.readerOrder;
 
       // Compute the "advancers" argument to Advancer.Record constructor
       Advancer[] fieldAdvs = new Advancer[readOrder.length];
@@ -573,15 +568,21 @@ abstract class Advancer {
       // record's field order not changing.
       boolean inOrder = true;
       for (int k = 0; k < ra.firstDefault-1; k++)
-        inOrder &= (readOrder[k] < readOrder[k+1]);
+        inOrder &= (readOrder[k].pos() < readOrder[k+1].pos());
       if (inOrder) {
         Advancer[] newAdvancers = new Advancer[fieldAdvs.length];
+        Schema.Field[] newReadOrder = new Schema.Field[fieldAdvs.length];
         for (int k = 0, rf2 = 0, df = ra.firstDefault; k < readOrder.length; k++) {
-          if (readOrder[rf2] < readOrder[df]) newAdvancers[k] = fieldAdvs[rf2++];
-          else newAdvancers[k] = fieldAdvs[df++];
+          if (readOrder[rf2].pos() < readOrder[df].pos()) {
+            newAdvancers[k] = fieldAdvs[rf2];
+            newReadOrder[k] = readOrder[rf2++];
+          } else {
+            newAdvancers[k] = fieldAdvs[df];
+            newReadOrder[k] = readOrder[df++];
+          }
         }
-        for (int k = 0; k < readOrder.length; k++) readOrder[k] = k;
         fieldAdvs = newAdvancers;
+        readOrder = newReadOrder;
       }
 
       return new Record(fieldAdvs, finalSkips, readOrder, inOrder);
@@ -595,9 +596,6 @@ abstract class Advancer {
       this.toSkip = toSkip;
       this.field = field;
     }
-
-    public Object next(Decoder in) throws IOException
-      { ignore(toSkip, in); return field.next(in); }
 
     public Object nextNull(Decoder in) throws IOException
       { ignore(toSkip, in); return field.nextNull(in); }
