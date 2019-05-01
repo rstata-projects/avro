@@ -144,4 +144,3 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     throw new UnsupportedOperationException();
   }
 }
-
