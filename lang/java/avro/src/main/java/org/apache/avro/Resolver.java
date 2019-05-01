@@ -318,7 +318,7 @@ public class Resolver {
           return Promotions.STRING2BYTES;
         break;
       case STRING:
-        if (wt == Schema.Type.STRING)
+        if (wt == Schema.Type.BYTES)
           return Promotions.BYTES2STRING;
         break;
       }

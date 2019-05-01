@@ -189,21 +189,21 @@ abstract class Advancer {
     case DO_NOTHING:
       switch (a.reader.getType()) {
       case NULL:
-        return NullFast.instance;
+        return NullFast.INSTANCE;
       case BOOLEAN:
-        return BooleanFast.instance;
+        return BooleanFast.INSTANCE;
       case INT:
-        return IntFast.instance;
+        return IntFast.INSTANCE;
       case LONG:
-        return LongFast.instance;
+        return LongFast.INSTANCE;
       case FLOAT:
-        return FloatFast.instance;
+        return FloatFast.INSTANCE;
       case DOUBLE:
-        return DoubleFast.instance;
+        return DoubleFast.INSTANCE;
       case STRING:
-        return StringFast.instance;
+        return StringFast.INSTANCE;
       case BYTES:
-        return BytesFast.instance;
+        return BytesFast.INSTANCE;
       case FIXED:
         return new FixedFast(a.writer, a.reader);
       default:
@@ -212,21 +212,21 @@ abstract class Advancer {
     case PROMOTE:
       switch (((Resolver.Promote) a).promotion) {
       case INT2LONG:
-        return LongFromInt.instance;
+        return LongFromInt.INSTANCE;
       case INT2FLOAT:
-        return FloatFromInt.instance;
+        return FloatFromInt.INSTANCE;
       case INT2DOUBLE:
-        return DoubleFromInt.instance;
+        return DoubleFromInt.INSTANCE;
       case LONG2FLOAT:
-        return FloatFromLong.instance;
+        return FloatFromLong.INSTANCE;
       case LONG2DOUBLE:
-        return DoubleFromLong.instance;
+        return DoubleFromLong.INSTANCE;
       case FLOAT2DOUBLE:
-        return DoubleFromFloat.instance;
+        return DoubleFromFloat.INSTANCE;
       case STRING2BYTES:
-        return BytesFromString.instance;
+        return BytesFromString.INSTANCE;
       case BYTES2STRING:
-        return StringFromBytes.instance;
+        return StringFromBytes.INSTANCE;
       default:
         throw new IllegalArgumentException("Unexpected promotion:" + a);
       }
@@ -355,7 +355,7 @@ abstract class Advancer {
    * See the implementation of {@link GenericDatumReader2} for more illustrations.
    */
   public static class Map extends Container {
-    public final Advancer keyAdvancer = StringFast.instance;
+    public final Advancer keyAdvancer = StringFast.INSTANCE;
 
     public Map(Schema w, Schema r, Advancer ea) {
       super(w, r, ea);
@@ -375,11 +375,11 @@ abstract class Advancer {
   //// is call the corresponding method on the Decoder.
 
   private static class NullFast extends Advancer {
-    public static final NullFast instance = new NullFast();
-    private static final Schema s = Schema.create(Schema.Type.NULL);
+    public static final NullFast INSTANCE = new NullFast();
+    private static final Schema S = Schema.create(Schema.Type.NULL);
 
     private NullFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public Object nextNull(Decoder in) throws IOException {
@@ -393,11 +393,11 @@ abstract class Advancer {
   }
 
   private static class BooleanFast extends Advancer {
-    public static final BooleanFast instance = new BooleanFast();
-    private static final Schema s = Schema.create(Schema.Type.BOOLEAN);
+    public static final BooleanFast INSTANCE = new BooleanFast();
+    private static final Schema S = Schema.create(Schema.Type.BOOLEAN);
 
     private BooleanFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public boolean nextBoolean(Decoder in) throws IOException {
@@ -410,11 +410,11 @@ abstract class Advancer {
   }
 
   private static class IntFast extends Advancer {
-    public static final IntFast instance = new IntFast();
-    private static final Schema s = Schema.create(Schema.Type.INT);
+    public static final IntFast INSTANCE = new IntFast();
+    private static final Schema S = Schema.create(Schema.Type.INT);
 
     private IntFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public int nextInt(Decoder in) throws IOException {
@@ -427,11 +427,11 @@ abstract class Advancer {
   }
 
   private static class LongFast extends Advancer {
-    public static final LongFast instance = new LongFast();
-    private static final Schema s = Schema.create(Schema.Type.LONG);
+    public static final LongFast INSTANCE = new LongFast();
+    private static final Schema S = Schema.create(Schema.Type.LONG);
 
     private LongFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public long nextLong(Decoder in) throws IOException {
@@ -444,11 +444,11 @@ abstract class Advancer {
   }
 
   private static class FloatFast extends Advancer {
-    public static final FloatFast instance = new FloatFast();
-    private static final Schema s = Schema.create(Schema.Type.FLOAT);
+    public static final FloatFast INSTANCE = new FloatFast();
+    private static final Schema S = Schema.create(Schema.Type.FLOAT);
 
     private FloatFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public float nextFloat(Decoder in) throws IOException {
@@ -461,11 +461,11 @@ abstract class Advancer {
   }
 
   private static class DoubleFast extends Advancer {
-    public static final DoubleFast instance = new DoubleFast();
-    private static final Schema s = Schema.create(Schema.Type.DOUBLE);
+    public static final DoubleFast INSTANCE = new DoubleFast();
+    private static final Schema S = Schema.create(Schema.Type.DOUBLE);
 
     private DoubleFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public double nextDouble(Decoder in) throws IOException {
@@ -478,11 +478,11 @@ abstract class Advancer {
   }
 
   private static class StringFast extends Advancer {
-    public static final StringFast instance = new StringFast();
-    private static final Schema s = Schema.create(Schema.Type.STRING);
+    public static final StringFast INSTANCE = new StringFast();
+    private static final Schema S = Schema.create(Schema.Type.STRING);
 
     private StringFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public String nextString(Decoder in) throws IOException {
@@ -499,11 +499,11 @@ abstract class Advancer {
   }
 
   private static class BytesFast extends Advancer {
-    public static final BytesFast instance = new BytesFast();
-    private static final Schema s = Schema.create(Schema.Type.BYTES);
+    public static final BytesFast INSTANCE = new BytesFast();
+    private static final Schema S = Schema.create(Schema.Type.BYTES);
 
     private BytesFast() {
-      super(s, s);
+      super(S, S);
     }
 
     public ByteBuffer nextBytes(Decoder in, ByteBuffer old) throws IOException {
@@ -553,7 +553,7 @@ abstract class Advancer {
   //// to the underlying value read.
 
   private static class LongFromInt extends Advancer {
-    public static final LongFromInt instance = new LongFromInt();
+    public static final LongFromInt INSTANCE = new LongFromInt();
 
     private LongFromInt() {
       super(Schema.create(Schema.Type.INT), Schema.create(Schema.Type.LONG));
@@ -569,7 +569,7 @@ abstract class Advancer {
   }
 
   private static class FloatFromInt extends Advancer {
-    public static final FloatFromInt instance = new FloatFromInt();
+    public static final FloatFromInt INSTANCE = new FloatFromInt();
 
     private FloatFromInt() {
       super(Schema.create(Schema.Type.INT), Schema.create(Schema.Type.FLOAT));
@@ -585,7 +585,7 @@ abstract class Advancer {
   }
 
   private static class FloatFromLong extends Advancer {
-    public static final FloatFromLong instance = new FloatFromLong();
+    public static final FloatFromLong INSTANCE = new FloatFromLong();
 
     private FloatFromLong() {
       super(Schema.create(Schema.Type.LONG), Schema.create(Schema.Type.FLOAT));
@@ -601,7 +601,7 @@ abstract class Advancer {
   }
 
   private static class DoubleFromInt extends Advancer {
-    public static final DoubleFromInt instance = new DoubleFromInt();
+    public static final DoubleFromInt INSTANCE = new DoubleFromInt();
 
     private DoubleFromInt() {
       super(Schema.create(Schema.Type.INT), Schema.create(Schema.Type.DOUBLE));
@@ -617,7 +617,7 @@ abstract class Advancer {
   }
 
   private static class DoubleFromLong extends Advancer {
-    public static final DoubleFromLong instance = new DoubleFromLong();
+    public static final DoubleFromLong INSTANCE = new DoubleFromLong();
 
     private DoubleFromLong() {
       super(Schema.create(Schema.Type.LONG), Schema.create(Schema.Type.DOUBLE));
@@ -633,7 +633,7 @@ abstract class Advancer {
   }
 
   private static class DoubleFromFloat extends Advancer {
-    public static final DoubleFromFloat instance = new DoubleFromFloat();
+    public static final DoubleFromFloat INSTANCE = new DoubleFromFloat();
 
     private DoubleFromFloat() {
       super(Schema.create(Schema.Type.FLOAT), Schema.create(Schema.Type.DOUBLE));
@@ -649,7 +649,7 @@ abstract class Advancer {
   }
 
   private static class BytesFromString extends Advancer {
-    public static final BytesFromString instance = new BytesFromString();
+    public static final BytesFromString INSTANCE = new BytesFromString();
 
     private BytesFromString() {
       super(Schema.create(Schema.Type.STRING), Schema.create(Schema.Type.BYTES));
@@ -666,7 +666,7 @@ abstract class Advancer {
   }
 
   private static class StringFromBytes extends Advancer {
-    public static final StringFromBytes instance = new StringFromBytes();
+    public static final StringFromBytes INSTANCE = new StringFromBytes();
 
     private StringFromBytes() {
       super(Schema.create(Schema.Type.BYTES), Schema.create(Schema.Type.STRING));
