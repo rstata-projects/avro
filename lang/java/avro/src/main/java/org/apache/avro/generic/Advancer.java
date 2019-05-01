@@ -31,33 +31,35 @@ import org.apache.avro.util.Utf8;
  * An "Advancer" is a tree of objects that apply resolution logic while reading
  * values out of a {@link Decoder}.
  *
- * An Advancer tree is created by calling {@link Advancer#from(Resolver.Action)} on a
- * {@link Resolver.Action} object. The resulting tree mimics the reader schema
- * of that Action object.
+ * An Advancer tree is created by calling {@link Advancer#from(Resolver.Action)}
+ * on a {@link Resolver.Action} object. The resulting tree mimics the reader
+ * schema of that Action object.
  *
  * A decoder for that reader schema is meant to traverse the schema in a
  * depth-first fashion. When it hits a leaf of type <code>Xyz</code>, it should
  * call corresponding <code>nextXyx</code> on the Advancer. For example, if the
  * reader hits a lead indicating that an integer should be read, it should call
- * {@link Advancer#nextInt}, as in <code>a.nextInt(in)</code>, where <code>a</code> is
- * the advancer being traversed, and <code>in</code> is the Decoder being read
- * from.
+ * {@link Advancer#nextInt}, as in <code>a.nextInt(in)</code>, where
+ * <code>a</code> is the advancer being traversed, and <code>in</code> is the
+ * Decoder being read from.
  *
  * When traversing an Array or Map in the reader schema, the decoder should call
- * {@link Advancer.Container#elementAdvancer} to retrieve the advancer object for the contained
- * element-schema or value-schema. See the JavaDoc for
- * {@link Advancer.Container#elementAdvancer} for instructions on how to decode these types.
+ * {@link Advancer.Container#elementAdvancer} to retrieve the advancer object
+ * for the contained element-schema or value-schema. See the JavaDoc for
+ * {@link Advancer.Container#elementAdvancer} for instructions on how to decode
+ * these types.
  *
- * For unions, the decoder should call {@link Advancer#nextIndex} to fetch the branch and
- * then {@link Advancer#getBranchAdvancer} to get the advancer of that branch. (Calling
- * {@link Advancer#next} on a union will read the index, pick the right advancer based on
- * the index, and then read and return the actual value.)
+ * For unions, the decoder should call {@link Advancer#nextIndex} to fetch the
+ * branch and then {@link Advancer#getBranchAdvancer} to get the advancer of
+ * that branch. (Calling {@link Advancer#next} on a union will read the index,
+ * pick the right advancer based on the index, and then read and return the
+ * actual value.)
  *
  * Traversing records, arrays, and maps is more involved. In the case of an
- * array or map, call {@link Advancer#getArrayAdvancer} {@link Advancer#getMapAdvancer} and
- * proceed as described in the documentation for {@link Advancer.Container}. For
- * records, best to just look at the implementation of
- * {@link GenericDatumReader2}.
+ * array or map, call {@link Advancer#getArrayAdvancer}
+ * {@link Advancer#getMapAdvancer} and proceed as described in the documentation
+ * for {@link Advancer.Container}. For records, best to just look at the
+ * implementation of {@link GenericDatumReader2}.
  **/
 abstract class Advancer {
 
@@ -134,8 +136,8 @@ abstract class Advancer {
   }
 
   /**
-   * Access to contained advancer for unions. You must call {@link Advancer#nextIndex}
-   * before calling this method.
+   * Access to contained advancer for unions. You must call
+   * {@link Advancer#nextIndex} before calling this method.
    */
   public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException {
     throw new UnsupportedOperationException();
@@ -816,11 +818,11 @@ abstract class Advancer {
   //// fields, read fields out of order, and use default values.
 
   /**
-   * Advancer for records. The {@link Advancer.Record#advancers} array contains an advancer for
-   * each field, ordered according writer (which determines the order in which
-   * data must be read). The {@link Advancer.Record#readerOrder} array tells you how those
-   * advancers line up with the reader's fields. Thus, the following is how to
-   * read a record:
+   * Advancer for records. The {@link Advancer.Record#advancers} array contains an
+   * advancer for each field, ordered according writer (which determines the order
+   * in which data must be read). The {@link Advancer.Record#readerOrder} array
+   * tells you how those advancers line up with the reader's fields. Thus, the
+   * following is how to read a record:
    * 
    * <pre>
    * for (int i = 0; i < a.advancers.length; i++) {
@@ -829,11 +831,11 @@ abstract class Advancer {
    * a.done(in);
    * </pre>
    * 
-   * Note that a decoder <em>must</em> call {@link Advancer.Record#done} after interpreting all
-   * the elemnts in {@link Advancer.Record#advancers}.
+   * Note that a decoder <em>must</em> call {@link Advancer.Record#done} after
+   * interpreting all the elemnts in {@link Advancer.Record#advancers}.
    *
-   * As a convenience, {@link Advancer.Record#inOrder} is set to true iff the reader and writer
-   * order agrees (i.e., iff <code>readerOrder[i].pos() ==
+   * As a convenience, {@link Advancer.Record#inOrder} is set to true iff the
+   * reader and writer order agrees (i.e., iff <code>readerOrder[i].pos() ==
    * i</code> for all i). Generated code can use this to optimize this common
    * case.
    */
@@ -856,7 +858,10 @@ abstract class Advancer {
       return this;
     }
 
-    /** Must be called after consuming all elements of {@link Advancer.Record#advancers}. */
+    /**
+     * Must be called after consuming all elements of
+     * {@link Advancer.Record#advancers}.
+     */
     public void done(Decoder in) throws IOException {
       ignore(finalSkips, in);
     }
