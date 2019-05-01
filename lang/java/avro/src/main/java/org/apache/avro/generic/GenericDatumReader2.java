@@ -37,32 +37,39 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     data = d;
   }
 
-  /** ... Document how we use <code>d:</code> to create fixed, array,
-    * map, and record objects.
-    */
+  /**
+   * ... Document how we use <code>d:</code> to create fixed, array, map, and
+   * record objects.
+   */
   public static GenericDatumReader2 getReaderFor(Schema writer, Schema reader, GenericData d) {
     // TODO: add caching
     Resolver.Action a = Resolver.resolve(writer, reader, d);
-    Advancer.Record r = (Advancer.Record)Advancer.from(a);
+    Advancer.Record r = (Advancer.Record) Advancer.from(a);
     return new GenericDatumReader2(r, d);
   }
 
   public D read(D reuse, Decoder in) throws IOException {
-   return null;
+    return null;
   }
 
-  public Object read(Object reuse, Advancer a, Decoder in)
-    throws IOException
-  {
+  public Object read(Object reuse, Advancer a, Decoder in) throws IOException {
     switch (a.reader.getType()) {
-    case NULL: return a.nextNull(in);
-    case BOOLEAN: return (Boolean) a.nextBoolean(in);
-    case INT: return (Integer) a.nextInt(in);
-    case LONG: return (Long) a.nextLong(in);
-    case FLOAT: return (Float) a.nextFloat(in);
-    case DOUBLE: return (Double) a.nextDouble(in);
-    case STRING: return (String) a.nextString(in);
-    case BYTES: return a.nextBytes(in, (ByteBuffer)reuse);
+    case NULL:
+      return a.nextNull(in);
+    case BOOLEAN:
+      return (Boolean) a.nextBoolean(in);
+    case INT:
+      return (Integer) a.nextInt(in);
+    case LONG:
+      return (Long) a.nextLong(in);
+    case FLOAT:
+      return (Float) a.nextFloat(in);
+    case DOUBLE:
+      return (Double) a.nextDouble(in);
+    case STRING:
+      return (String) a.nextString(in);
+    case BYTES:
+      return a.nextBytes(in, (ByteBuffer) reuse);
     case FIXED: {
       GenericFixed fixed = (GenericFixed) data.createFixed(reuse, a.reader);
       a.nextFixed(in, fixed.bytes());
@@ -77,10 +84,11 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
         ((GenericArray) reuse).reset();
       } else if (reuse instanceof Collection) {
         ((Collection) reuse).clear();
-      } else reuse = new GenericData.Array((int)i, a.reader);
+      } else
+        reuse = new GenericData.Array((int) i, a.reader);
 
-      Collection array = (Collection)reuse;
-      for( ; i != 0; i = c.nextChunk(in))
+      Collection array = (Collection) reuse;
+      for (; i != 0; i = c.nextChunk(in))
         for (long j = 0; j < i; j++) {
           Object v = read(null, ec, in);
           // TODO -- logical type conversion
@@ -89,7 +97,7 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       if (array instanceof GenericArray<?>)
         ((GenericArray<?>) array).prune();
     }
-        
+
     case MAP: {
       Advancer.Map c = advancer.getMapAdvancer(in);
       Advancer kc = c.keyAdvancer;
@@ -97,9 +105,10 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       long i = c.firstChunk(in);
       if (reuse instanceof Map) {
         ((Map) reuse).clear();
-      } else reuse = new HashMap<Object,Object>((int)i);
-      Map map = (Map)reuse;
-      for ( ; i != 0; i = c.nextChunk(in))
+      } else
+        reuse = new HashMap<Object, Object>((int) i);
+      Map map = (Map) reuse;
+      for (; i != 0; i = c.nextChunk(in))
         for (int j = 0; j < i; j++) {
           Object key = kc.nextString(in);
           Object val = read(null, ec, in);
@@ -113,7 +122,7 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       Object r = data.newRecord(reuse, ra.reader);
       for (int i = 0; i < ra.advancers.length; i++) {
         int p = ra.readerOrder[i].pos();
-        ((IndexedRecord)reuse).put(p, read(null, ra.advancers[i], in));
+        ((IndexedRecord) reuse).put(p, read(null, ra.advancers[i], in));
       }
       ra.done(in);
       return r;
@@ -127,8 +136,10 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     }
   }
 
-  /** Throws {@link UnsupportedOperationException}.  (In retrospect, making
-    * DatumReaders mutable wasn't a good idea...) */
+  /**
+   * Throws {@link UnsupportedOperationException}. (In retrospect, making
+   * DatumReaders mutable wasn't a good idea...)
+   */
   public void setSchema(Schema s) {
     throw new UnsupportedOperationException();
   }

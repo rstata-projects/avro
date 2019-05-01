@@ -163,11 +163,11 @@ public class Resolver {
   }
 
   /**
-   * In this case, there's nothing to be done for resolution: the two
-   * schemas are effectively the same. This action will be generated
-   * <em>only</em> for primitive types (incl. STRING and BYTES) and
-   * also for fixed types, and <not>not</not for any other kind of
-   * schema. */
+   * In this case, there's nothing to be done for resolution: the two schemas are
+   * effectively the same. This action will be generated <em>only</em> for
+   * primitive types (incl. STRING and BYTES) and also for fixed types, and
+   * <not>not</not for any other kind of schema.
+   */
   public static class DoNothing extends Action {
     public DoNothing(Schema w, Schema r, GenericData d) {
       super(w, r, d, Action.Type.DO_NOTHING);
@@ -251,9 +251,7 @@ public class Resolver {
    */
   public static class Promote extends Action {
     public static enum Promotions {
-      INT2LONG, INT2FLOAT, INT2DOUBLE,
-      LONG2FLOAT, LONG2DOUBLE, FLOAT2DOUBLE,
-      STRING2BYTES, BYTES2STRING
+      INT2LONG, INT2FLOAT, INT2DOUBLE, LONG2FLOAT, LONG2DOUBLE, FLOAT2DOUBLE, STRING2BYTES, BYTES2STRING
     }
 
     /** The exact promotion being represented. */
@@ -283,9 +281,8 @@ public class Resolver {
     }
 
     /**
-     * Returns the {@link Promtion} that would resolve schema
-     * <code>w</code> against <code>r</code>, or null if there is no
-     * such promotion.
+     * Returns the {@link Promtion} that would resolve schema <code>w</code> against
+     * <code>r</code>, or null if there is no such promotion.
      */
     private static Promotions findPromotion(Schema w, Schema r) {
       if (w.getType() == r.getType())
@@ -294,27 +291,35 @@ public class Resolver {
       switch (r.getType()) {
       case LONG:
         switch (wt) {
-        case INT: return Promotions.INT2LONG;
+        case INT:
+          return Promotions.INT2LONG;
         }
         break;
       case FLOAT:
         switch (wt) {
-        case INT: return Promotions.INT2FLOAT;
-        case LONG: return Promotions.LONG2FLOAT;
+        case INT:
+          return Promotions.INT2FLOAT;
+        case LONG:
+          return Promotions.LONG2FLOAT;
         }
         break;
       case DOUBLE:
         switch (wt) {
-        case INT: return Promotions.INT2DOUBLE;
-        case LONG: return Promotions.LONG2DOUBLE;
-        case FLOAT: return Promotions.FLOAT2DOUBLE;
+        case INT:
+          return Promotions.INT2DOUBLE;
+        case LONG:
+          return Promotions.LONG2DOUBLE;
+        case FLOAT:
+          return Promotions.FLOAT2DOUBLE;
         }
         break;
       case BYTES:
-        if (wt == Schema.Type.STRING) return Promotions.STRING2BYTES;
+        if (wt == Schema.Type.STRING)
+          return Promotions.STRING2BYTES;
         break;
       case STRING:
-        if (wt == Schema.Type.STRING) return Promotions.BYTES2STRING;
+        if (wt == Schema.Type.STRING)
+          return Promotions.BYTES2STRING;
         break;
       }
       return null;
@@ -422,12 +427,11 @@ public class Resolver {
     public final Action[] fieldActions;
 
     /**
-     * Contains (all of) the reader's fields. The first {@link
-     * firstDefault} of these are the fields that will be read from
-     * the writer: these are in the order dictated by writer's
-     * schema. The remaining fields from {@link firstDefault} to the
-     * end of the array will be read from default values (actions for
-     * these default values are found in {@link defaults}.  Note that
+     * Contains (all of) the reader's fields. The first {@link firstDefault} of
+     * these are the fields that will be read from the writer: these are in the
+     * order dictated by writer's schema. The remaining fields from
+     * {@link firstDefault} to the end of the array will be read from default values
+     * (actions for these default values are found in {@link defaults}. Note that
      * the default fields are in the order of the reader's schema.
      */
     public final Field[] readerOrder;
