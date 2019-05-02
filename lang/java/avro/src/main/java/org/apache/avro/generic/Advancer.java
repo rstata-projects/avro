@@ -78,52 +78,67 @@ abstract class Advancer {
     this.reader = r;
   }
 
-  public Object next(Decoder in) throws IOException {
+  /**
+   * The {@link Error} subclass overrides this method and
+   * throws an AvroTypeException instead.
+   */
+  protected Exception exception() {
     throw new UnsupportedOperationException();
   }
 
   public Object nextNull(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   public boolean nextBoolean(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return false;
   }
 
   public int nextInt(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return 0;
   }
 
   public long nextLong(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return 0;
   }
 
   public float nextFloat(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return 0;
   }
 
   public double nextDouble(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return 0;
   }
 
   public int nextEnum(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return 0;
   }
 
   public Utf8 nextString(Decoder in, Utf8 old) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   public String nextString(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   public ByteBuffer nextBytes(Decoder in, ByteBuffer old) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   public byte[] nextFixed(Decoder in, byte[] bytes, int start, int length) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   public byte[] nextFixed(Decoder in, byte[] bytes) throws IOException {
@@ -132,7 +147,8 @@ abstract class Advancer {
 
   /** Get index for a union. */
   public int nextIndex(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return 0;
   }
 
   /**
@@ -140,22 +156,26 @@ abstract class Advancer {
    * {@link Advancer#nextIndex} before calling this method.
    */
   public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   /** Access to advancer for array type. */
   public Container getArrayAdvancer(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   /** Access to advancer for array type. */
   public Map getMapAdvancer(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   /** Access to advancer for record type. */
   public Record getRecordAdvancer(Decoder in) throws IOException {
-    throw new UnsupportedOperationException();
+    exception();
+    return null;
   }
 
   ////// Here's the builder for Advancer trees. The subclasses used by
@@ -368,10 +388,6 @@ abstract class Advancer {
       in.readNull();
       return null;
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextNull(in);
-    }
   }
 
   private static class BooleanFast extends Advancer {
@@ -384,10 +400,6 @@ abstract class Advancer {
 
     public boolean nextBoolean(Decoder in) throws IOException {
       return in.readBoolean();
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextBoolean(in);
     }
   }
 
@@ -402,10 +414,6 @@ abstract class Advancer {
     public int nextInt(Decoder in) throws IOException {
       return in.readInt();
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextInt(in);
-    }
   }
 
   private static class LongFast extends Advancer {
@@ -418,10 +426,6 @@ abstract class Advancer {
 
     public long nextLong(Decoder in) throws IOException {
       return in.readLong();
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextLong(in);
     }
   }
 
@@ -436,10 +440,6 @@ abstract class Advancer {
     public float nextFloat(Decoder in) throws IOException {
       return in.readFloat();
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextFloat(in);
-    }
   }
 
   private static class DoubleFast extends Advancer {
@@ -452,10 +452,6 @@ abstract class Advancer {
 
     public double nextDouble(Decoder in) throws IOException {
       return in.readDouble();
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextDouble(in);
     }
   }
 
@@ -474,10 +470,6 @@ abstract class Advancer {
     public Utf8 nextString(Decoder in, Utf8 old) throws IOException {
       return in.readString(old);
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextString(in);
-    }
   }
 
   private static class BytesFast extends Advancer {
@@ -490,10 +482,6 @@ abstract class Advancer {
 
     public ByteBuffer nextBytes(Decoder in, ByteBuffer old) throws IOException {
       return in.readBytes(old);
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextBytes(in, null);
     }
   }
 
@@ -509,12 +497,6 @@ abstract class Advancer {
       in.readFixed(bytes, start, len);
       return bytes;
     }
-
-    public Object next(Decoder in) throws IOException {
-      byte[] result = new byte[len];
-      nextFixed(in, new byte[len]);
-      return result;
-    }
   }
 
   private static class EnumFast extends Advancer {
@@ -524,10 +506,6 @@ abstract class Advancer {
 
     public int nextEnum(Decoder in) throws IOException {
       return in.readEnum();
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextEnum(in);
     }
   }
 
@@ -544,10 +522,6 @@ abstract class Advancer {
     public long nextLong(Decoder in) throws IOException {
       return (long) in.readInt();
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextLong(in);
-    }
   }
 
   private static class FloatFromInt extends Advancer {
@@ -559,10 +533,6 @@ abstract class Advancer {
 
     public float nextFloat(Decoder in) throws IOException {
       return (float) in.readInt();
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextFloat(in);
     }
   }
 
@@ -576,10 +546,6 @@ abstract class Advancer {
     public float nextFloat(Decoder in) throws IOException {
       return (long) in.readLong();
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextFloat(in);
-    }
   }
 
   private static class DoubleFromInt extends Advancer {
@@ -591,10 +557,6 @@ abstract class Advancer {
 
     public double nextDouble(Decoder in) throws IOException {
       return (double) in.readInt();
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextDouble(in);
     }
   }
 
@@ -608,10 +570,6 @@ abstract class Advancer {
     public double nextDouble(Decoder in) throws IOException {
       return (double) in.readLong();
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextDouble(in);
-    }
   }
 
   private static class DoubleFromFloat extends Advancer {
@@ -623,10 +581,6 @@ abstract class Advancer {
 
     public double nextDouble(Decoder in) throws IOException {
       return (double) in.readFloat();
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextDouble(in);
     }
   }
 
@@ -640,10 +594,6 @@ abstract class Advancer {
     public ByteBuffer nextBytes(Decoder in, ByteBuffer old) throws IOException {
       Utf8 s = in.readString(null);
       return ByteBuffer.wrap(s.getBytes(), 0, s.getByteLength());
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextBytes(in, null);
     }
   }
 
@@ -661,10 +611,6 @@ abstract class Advancer {
     public Utf8 nextString(Decoder in, Utf8 old) throws IOException {
       return new Utf8(in.readBytes(null).array());
     }
-
-    public Object next(Decoder in) throws IOException {
-      return nextString(in);
-    }
   }
 
   //// This last set of advancers are used when more sophisticated
@@ -680,10 +626,6 @@ abstract class Advancer {
 
     public int nextEnum(Decoder in) throws IOException {
       return adjustments[in.readInt()];
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return nextEnum(in);
     }
   }
 
@@ -701,10 +643,6 @@ abstract class Advancer {
 
     private final Advancer b(Decoder in) throws IOException {
       return branches[in.readIndex()];
-    }
-
-    public Object next(Decoder in) throws IOException {
-      return b(in).next(in);
     }
 
     public Object nextNull(Decoder in) throws IOException {
@@ -818,26 +756,21 @@ abstract class Advancer {
   //// fields, read fields out of order, and use default values.
 
   /**
-   * Advancer for records. The {@link Advancer.Record#advancers} array contains an
-   * advancer for each field, ordered according writer (which determines the order
-   * in which data must be read). The {@link Advancer.Record#readerOrder} array
-   * tells you how those advancers line up with the reader's fields. Thus, the
-   * following is how to read a record:
-   * 
-   * <pre>
-   * for (int i = 0; i < a.advancers.length; i++) {
-   *   dataum.set(a.readerOrder[i].pos(), a.advancers[i].next(in));
-   * }
-   * a.done(in);
-   * </pre>
-   * 
-   * Note that a decoder <em>must</em> call {@link Advancer.Record#done} after
-   * interpreting all the elemnts in {@link Advancer.Record#advancers}.
+   * Advancer for records. The {@link Advancer.Record#advancers} array
+   * contains an advancer for each field, ordered according writer
+   * (which determines the order in which data must be read). The
+   * {@link Advancer.Record#readerOrder} array tells you how those
+   * advancers line up with the reader's fields. See {@link
+   * GenericDatumReader2} for guidance on how to use these fields.
+
+   * Note that a decoder <em>must</em> call {@link
+   * Advancer.Record#done} after interpreting all the elemnts in
+   * {@link Advancer.Record#advancers}.
    *
-   * As a convenience, {@link Advancer.Record#inOrder} is set to true iff the
-   * reader and writer order agrees (i.e., iff <code>readerOrder[i].pos() ==
-   * i</code> for all i). Generated code can use this to optimize this common
-   * case.
+   * As a convenience, {@link Advancer.Record#inOrder} is set to true
+   * iff the reader and writer order agrees (i.e., iff
+   * <code>readerOrder[i].pos() == i</code> for all i). Generated code
+   * can use this to optimize this common case.
    */
   public static class Record extends Advancer {
     public final Advancer[] advancers;
@@ -845,13 +778,12 @@ abstract class Advancer {
     public final Schema.Field[] readerOrder;
     public final boolean inOrder;
 
-    private Record(Schema w, Schema r, Advancer[] advancers, Schema[] finalSkips, Schema.Field[] readerOrder,
-        boolean inOrder) {
+    private Record(Schema w, Schema r, Advancer[] a, Schema[] s, Schema.Field[] o, boolean f) {
       super(w, r);
-      this.advancers = advancers;
-      this.finalSkips = finalSkips;
-      this.readerOrder = readerOrder;
-      this.inOrder = inOrder;
+      this.advancers = a;
+      this.finalSkips = s;
+      this.readerOrder = o;
+      this.inOrder = f;
     }
 
     public Record getRecordAdvancer(Decoder in) {
@@ -1023,10 +955,6 @@ abstract class Advancer {
     private Default(Schema s, Object v) {
       super(s, s);
       val = v;
-    }
-
-    public Object next(Decoder in) {
-      return val;
     }
 
     public Object nextNull(Decoder in) {

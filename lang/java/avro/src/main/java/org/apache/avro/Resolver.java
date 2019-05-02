@@ -367,10 +367,9 @@ public class Resolver {
     private EnumAdjust(Schema w, Schema r, GenericData d, int[] adj) {
       super(w, r, d, Action.Type.ENUM);
       this.adjustments = adj;
-      boolean noAdj;
       int rsymCount = r.getEnumSymbols().size();
       int count = Math.min(rsymCount, adj.length);
-      noAdj = (adj.length <= rsymCount);
+      boolean noAdj = (adj.length <= rsymCount);
       for (int i = 0; noAdj && i < count; i++)
         noAdj &= (i == adj[i]);
       this.noAdjustmentsNeeded = noAdj;
