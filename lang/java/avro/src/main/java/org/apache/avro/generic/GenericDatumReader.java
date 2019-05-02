@@ -418,32 +418,23 @@ public class GenericDatumReader<D> implements DatumReader<D> {
 
   /**
    * Called to create new array instances. Subclasses may override to use a
-   * different array implementation. By default, this returns a
-   * {@link GenericData.Array}.
+   * different array implementation. By default, this calls
+   * {@link GenericData.Array#newArray} on the GenericData object used to create
+   * this reader.
    */
   @SuppressWarnings("unchecked")
   protected Object newArray(Object old, int size, Schema schema) {
-    if (old instanceof GenericArray) {
-      ((GenericArray) old).reset();
-      return old;
-    } else if (old instanceof Collection) {
-      ((Collection) old).clear();
-      return old;
-    } else
-      return new GenericData.Array(size, schema);
+    return data.newArray(old, size, schema);
   }
 
   /**
    * Called to create new array instances. Subclasses may override to use a
-   * different map implementation. By default, this returns a {@link HashMap}.
+   * different map implementation. By default, calls {@link GenericData#newMap} on
+   * the GenericData object used to create this reader.
    */
   @SuppressWarnings("unchecked")
   protected Object newMap(Object old, int size) {
-    if (old instanceof Map) {
-      ((Map) old).clear();
-      return old;
-    } else
-      return new HashMap<>(size);
+    return data.newMap(old, size);
   }
 
   /**
