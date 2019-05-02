@@ -307,7 +307,6 @@ public class GenericDatumReader<D> implements DatumReader<D> {
    * value from a reused instance. The default implementation is for
    * {@link GenericArray}.
    */
-  @SuppressWarnings("unchecked")
   protected Object peekArray(Object array) {
     return (array instanceof GenericArray) ? ((GenericArray) array).peek() : null;
   }
@@ -422,17 +421,15 @@ public class GenericDatumReader<D> implements DatumReader<D> {
    * {@link GenericData.Array#newArray} on the GenericData object used to create
    * this reader.
    */
-  @SuppressWarnings("unchecked")
   protected Object newArray(Object old, int size, Schema schema) {
     return data.newArray(old, size, schema);
   }
 
   /**
-   * Called to create new array instances. Subclasses may override to use a
+   * Called to create new map instances. Subclasses may override to use a
    * different map implementation. By default, calls {@link GenericData#newMap} on
    * the GenericData object used to create this reader.
    */
-  @SuppressWarnings("unchecked")
   protected Object newMap(Object old, int size) {
     return data.newMap(old, size);
   }

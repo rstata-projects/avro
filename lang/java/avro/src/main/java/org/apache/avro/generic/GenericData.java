@@ -69,7 +69,7 @@ public class GenericData {
   /** Used to specify the Java type for a string schema. */
   public enum StringType {
     CharSequence, String, Utf8
-  };
+  }
 
   public static final String STRING_PROP = "avro.java.string";
   protected static final String STRING_TYPE_STRING = "String";
@@ -1345,7 +1345,7 @@ public class GenericData {
   }
 
   /**
-   * Called to create new array instances. Subclasses may override to use a
+   * Called to create new map instances. Subclasses may override to use a
    * different map implementation. By default, returns a Map from java.util.
    */
   protected Object newMap(Object old, int size) {
