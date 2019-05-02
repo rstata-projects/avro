@@ -1328,4 +1328,31 @@ public class GenericData {
     return new GenericData.Record(schema);
   }
 
+  /**
+   * Called to create new array instances. Subclasses may override to use a
+   * different array implementation. By default, this returns a
+   * {@link GenericData.Array}.
+   */
+  protected Object newArray(Object old, int size, Schema schema) {
+    if (old instanceof GenericArray) {
+      ((GenericArray) old).reset();
+      return old;
+    } else if (old instanceof Collection) {
+      ((Collection) old).clear();
+      return old;
+    } else
+      return new GenericData.Array(size, schema);
+  }
+
+  /**
+   * Called to create new array instances. Subclasses may override to use a
+   * different map implementation. By default, returns a Map from java.util.
+   */
+  protected Object newMap(Object old, int size) {
+    if (old instanceof Map) {
+      ((Map) old).clear();
+      return old;
+    } else
+      return new HashMap<>(size);
+  }
 }
