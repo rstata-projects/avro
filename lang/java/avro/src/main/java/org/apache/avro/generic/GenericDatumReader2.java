@@ -135,8 +135,8 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     }
   }
 
-  /** 
-   * Read a record in a generic fashion.  <code>reuse</code> cannot be
+  /**
+   * Read a record in a generic fashion. <code>reuse</code> cannot be
    * <code>null</code> and must implement <code>IndexedRecord</code>.
    */
   protected Object readRecord(Object reuse, Advancer.Record a, Decoder in) throws IOException {

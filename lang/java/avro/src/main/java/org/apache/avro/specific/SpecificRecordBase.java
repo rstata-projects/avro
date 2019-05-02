@@ -25,7 +25,6 @@ import java.io.IOException;
 import org.apache.avro.Conversion;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.io.ResolvingDecoder;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.Decoder;
@@ -123,20 +122,18 @@ public abstract class SpecificRecordBase
     throw new UnsupportedOperationException();
   }
 
-  /** Fill the fields of <code>this</code> with data from
-   * <code>in</code> using advancement records from <code>ra</code>.
-   * This method is meant for generated code which might not always be
-   * able to handle all cases.  If the current case cannot be handled,
-   * then <code>false</code> is returned, and the caller should
-   * attempt to read <code>this</code> from <code>in</code> using more
-   * generic means.  If <code>this</code> can be read, then
-   * <code>true</code> is returned.  An exception is thrown is
-   * something goes wrong while attempting the read.
+  /**
+   * Fill the fields of <code>this</code> with data from <code>in</code> using
+   * advancement records from <code>ra</code>. This method is meant for generated
+   * code which might not always be able to handle all cases. If the current case
+   * cannot be handled, then <code>false</code> is returned, and the caller should
+   * attempt to read <code>this</code> from <code>in</code> using more generic
+   * means. If <code>this</code> can be read, then <code>true</code> is returned.
+   * An exception is thrown is something goes wrong while attempting the read.
    *
    * <code>ra.reader</code> must, of course, match the schema of
-   * <code>this</code>, and <code>ra.writer</code> the schema used to
-   * write <code>in</code>.  Unpredictable things will happen if this
-   * is not the case.
+   * <code>this</code>, and <code>ra.writer</code> the schema used to write
+   * <code>in</code>. Unpredictable things will happen if this is not the case.
    */
   public boolean fastRead(Advancer.Record ra, Decoder in) {
     return false;

@@ -31,8 +31,9 @@ import org.apache.avro.util.Utf8;
  * An "Advancer" is a tree of objects that apply resolution logic while reading
  * values out of a {@link Decoder}.
  *
- * An Advancer tree is created by calling {@link Advancer#from(Resolver.Action)}.
- * The resulting tree mimics the reader schema of that Action object.
+ * An Advancer tree is created by calling
+ * {@link Advancer#from(Resolver.Action)}. The resulting tree mimics the reader
+ * schema of that Action object.
  *
  * A decoder for the reader schema is meant to traverse that schema in a
  * depth-first fashion. When it hits a leaf of type <code>Xyz</code>, it should
@@ -43,9 +44,9 @@ import org.apache.avro.util.Utf8;
  * Decoder being read from.
  *
  * When traversing an record, array, or map, the decoder should case the
- * corresponding Advancer to {@link Advancer.Record}, {@link Advancer.Array},
- * or {@link Advancer.Map} respectively.  See the Javadoc for those classes
- * for more details.
+ * corresponding Advancer to {@link Advancer.Record}, {@link Advancer.Array}, or
+ * {@link Advancer.Map} respectively. See the Javadoc for those classes for more
+ * details.
  *
  * For unions, the decoder should call {@link Advancer#nextIndex} to fetch the
  * branch and then {@link Advancer#getBranchAdvancer} to get the advancer of

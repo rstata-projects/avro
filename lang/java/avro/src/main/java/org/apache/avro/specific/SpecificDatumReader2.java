@@ -17,18 +17,12 @@
  */
 package org.apache.avro.specific;
 
-
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.avro.Resolver;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.Advancer;
 import org.apache.avro.generic.GenericDatumReader2;
-import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 
 public class SpecificDatumReader2<D> extends GenericDatumReader2<D> {
@@ -42,9 +36,10 @@ public class SpecificDatumReader2<D> extends GenericDatumReader2<D> {
       this.recordAdvancer = null;
   }
 
-  /** ... Document how we use <code>d:</code> to create fixed, array,
-    * map, and record objects.
-    */
+  /**
+   * ... Document how we use <code>d:</code> to create fixed, array, map, and
+   * record objects.
+   */
   public static SpecificDatumReader2 getReaderFor(Schema w, Schema r, SpecificData d) {
     // TODO: add caching
     Resolver.Action a = Resolver.resolve(w, r, d);
@@ -53,18 +48,17 @@ public class SpecificDatumReader2<D> extends GenericDatumReader2<D> {
   }
 
   /**
-   * Read a specific record with minimal overhead.  Specific records
-   * with compiled code are typically used when large numbers of
-   * records are being read out of a file and processed in some inner
-   * loop.  This method is designed to support that case.  To this
-   * end, the advancer object used to initialize <code>this</code>
-   * must be for a record type, which in turn must be the record type
-   * of <code>reuse</code> (a subclass of {@link SpecificRecordBase}),
-   * an <code>reuse</code> cannot be null.  A null-pointer or
-   * class-cast exception will be thrown if all of this is not true.
+   * Read a specific record with minimal overhead. Specific records with compiled
+   * code are typically used when large numbers of records are being read out of a
+   * file and processed in some inner loop. This method is designed to support
+   * that case. To this end, the advancer object used to initialize
+   * <code>this</code> must be for a record type, which in turn must be the record
+   * type of <code>reuse</code> (a subclass of {@link SpecificRecordBase}), an
+   * <code>reuse</code> cannot be null. A null-pointer or class-cast exception
+   * will be thrown if all of this is not true.
    */
   public D readRecord(D reuse, Decoder in) throws IOException {
-    SpecificRecordBase o = (SpecificRecordBase)reuse;
+    SpecificRecordBase o = (SpecificRecordBase) reuse;
     if (o.fastRead(recordAdvancer, in))
       return (D) o;
     return (D) readRecord(reuse, recordAdvancer, in);
