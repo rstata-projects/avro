@@ -881,13 +881,13 @@ public class SpecificCompiler {
   }
 
   /**
-   * Utility for template use. For a two-branch union type with one null branch,
-   * returns the index of the null branch. It's an error to use on anything other
-   * than a two-branch union with on null branch.
+   * Utility for template use. For nullable union, i.e., a two-branch union type
+   * with one null branch, returns the index of the null branch. Returns a
+   * negative number if its argument isn't a nullable union.
    */
   public int getNonNullIndex(Schema s) {
     if (s.getType() != Schema.Type.UNION || s.getTypes().size() != 2 || !s.getTypes().contains(NULL_SCHEMA))
-      throw new IllegalArgumentException("Can only be used on 2-branch union with a null branch: " + s);
+      return -1;
     return (s.getTypes().get(0).equals(NULL_SCHEMA) ? 1 : 0);
   }
 
