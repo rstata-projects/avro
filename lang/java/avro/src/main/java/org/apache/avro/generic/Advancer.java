@@ -31,37 +31,30 @@ import org.apache.avro.util.Utf8;
  * An "Advancer" is a tree of objects that apply resolution logic while reading
  * values out of a {@link Decoder}.
  *
- * An Advancer tree is created by calling {@link Advancer#from(Resolver.Action)}
- * on a {@link Resolver.Action} object. The resulting tree mimics the reader
- * schema of that Action object.
+ * An Advancer tree is created by calling {@link Advancer#from(Resolver.Action)}.
+ * The resulting tree mimics the reader schema of that Action object.
  *
- * A decoder for that reader schema is meant to traverse the schema in a
+ * A decoder for the reader schema is meant to traverse that schema in a
  * depth-first fashion. When it hits a leaf of type <code>Xyz</code>, it should
  * call corresponding <code>nextXyx</code> on the Advancer. For example, if the
- * reader hits a lead indicating that an integer should be read, it should call
+ * reader hits a leaf indicating that an integer should be read, it should call
  * {@link Advancer#nextInt}, as in <code>a.nextInt(in)</code>, where
  * <code>a</code> is the advancer being traversed, and <code>in</code> is the
  * Decoder being read from.
  *
- * When traversing an Array or Map in the reader schema, the decoder should call
- * {@link Advancer.Container#elementAdvancer} to retrieve the advancer object
- * for the contained element-schema or value-schema. See the JavaDoc for
- * {@link Advancer.Container#elementAdvancer} for instructions on how to decode
- * these types.
+ * When traversing an record, array, or map, the decoder should case the
+ * corresponding Advancer to {@link Advancer.Record}, {@link Advancer.Array},
+ * or {@link Advancer.Map} respectively.  See the Javadoc for those classes
+ * for more details.
  *
  * For unions, the decoder should call {@link Advancer#nextIndex} to fetch the
  * branch and then {@link Advancer#getBranchAdvancer} to get the advancer of
- * that branch. (Calling {@link Advancer#next} on a union will read the index,
- * pick the right advancer based on the index, and then read and return the
- * actual value.)
+ * that branch.
  *
- * Traversing records, arrays, and maps is more involved. In the case of an
- * array or map, call {@link Advancer#getArrayAdvancer}
- * {@link Advancer#getMapAdvancer} and proceed as described in the documentation
- * for {@link Advancer.Container}. For records, best to just look at the
+ * For an illustration of how to use this class, please refer to the
  * implementation of {@link GenericDatumReader2}.
  **/
-abstract class Advancer {
+public abstract class Advancer {
 
   //// API methods of Advancer. Used by decoding methods to
   //// read values out of Decoder, applying resolution logic
@@ -160,24 +153,6 @@ abstract class Advancer {
     return null;
   }
 
-  /** Access to advancer for array type. */
-  public Container getArrayAdvancer(Decoder in) throws IOException {
-    exception();
-    return null;
-  }
-
-  /** Access to advancer for array type. */
-  public Map getMapAdvancer(Decoder in) throws IOException {
-    exception();
-    return null;
-  }
-
-  /** Access to advancer for record type. */
-  public Record getRecordAdvancer(Decoder in) throws IOException {
-    exception();
-    return null;
-  }
-
   ////// Here's the builder for Advancer trees. The subclasses used by
   ////// this implementation are found below.
 
@@ -242,7 +217,7 @@ abstract class Advancer {
     case CONTAINER:
       Advancer ea = Advancer.from(((Resolver.Container) a).elementAction);
       if (a.writer.getType() == Schema.Type.ARRAY)
-        return new Container(a.writer, a.reader, ea);
+        return new Array(a.writer, a.reader, ea);
       else
         return new Map(a.writer, a.reader, ea);
 
@@ -311,7 +286,7 @@ abstract class Advancer {
    * array of int:
    *
    * <pre>
-   * Advancer.Container c = advancer.getArrayAdvancer(in);
+   * Advancer.Array c = (Advancer.Array) advancer;
    * for (long i = c.firstChunk(in); i != 0; i = c.nextChunk(in)) {
    *   for (long j = 0; j < i; j++) {
    *     int element = c.elementAdvancer.readInt(in);
@@ -322,10 +297,10 @@ abstract class Advancer {
    * 
    * See the implementation of {@link GenericDatumReader2} for more illustrations.
    */
-  public static class Container extends Advancer {
+  public static class Array extends Advancer {
     public final Advancer elementAdvancer;
 
-    public Container(Schema w, Schema r, Advancer ea) {
+    public Array(Schema w, Schema r, Advancer ea) {
       super(w, r);
       elementAdvancer = ea;
     }
@@ -344,11 +319,11 @@ abstract class Advancer {
    * of int:
    *
    * <pre>
-   * Advancer.Map c = advancer.getMapAdvancer(in);
+   * Advancer.Map c = (Advancer.Map) advancer;
    * for (long i = c.firstChunk(in); i != 0; i = c.nextChunk(in)) {
    *   for (long j = 0; j < i; j++) {
    *     String key = c.keyAdvancer.readString(in);
-   *     int element = c.elementAdvancer.readInt(in);
+   *     int val = c.valAdvancer.readInt(in);
    *     // .. do something with this element
    *   }
    * }
@@ -356,11 +331,13 @@ abstract class Advancer {
    * 
    * See the implementation of {@link GenericDatumReader2} for more illustrations.
    */
-  public static class Map extends Container {
+  public static class Map extends Advancer {
     public final Advancer keyAdvancer = StringFast.INSTANCE;
+    public final Advancer valAdvancer;
 
-    public Map(Schema w, Schema r, Advancer ea) {
-      super(w, r, ea);
+    protected Map(Schema w, Schema r, Advancer val) {
+      super(w, r);
+      this.valAdvancer = val;
     }
 
     public long firstChunk(Decoder in) throws IOException {
@@ -696,18 +673,6 @@ abstract class Advancer {
     public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException {
       return b(in).getBranchAdvancer(in, branch);
     }
-
-    public Container getArrayAdvancer(Decoder in) throws IOException {
-      return b(in).getArrayAdvancer(in);
-    }
-
-    public Map getMapAdvancer(Decoder in) throws IOException {
-      return b(in).getMapAdvancer(in);
-    }
-
-    public Record getRecordAdvancer(Decoder in) throws IOException {
-      return b(in).getRecordAdvancer(in);
-    }
   }
 
   /**
@@ -782,10 +747,6 @@ abstract class Advancer {
       this.finalSkips = s;
       this.readerOrder = o;
       this.inOrder = f;
-    }
-
-    public Record getRecordAdvancer(Decoder in) {
-      return this;
     }
 
     /**
@@ -929,21 +890,6 @@ abstract class Advancer {
     public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException {
       ignore(toSkip, in);
       return field.getBranchAdvancer(in, branch);
-    }
-
-    public Container getArrayAdvancer(Decoder in) throws IOException {
-      ignore(toSkip, in);
-      return field.getArrayAdvancer(in);
-    }
-
-    public Map getMapAdvancer(Decoder in) throws IOException {
-      ignore(toSkip, in);
-      return field.getMapAdvancer(in);
-    }
-
-    public Record getRecordAdvancer(Decoder in) throws IOException {
-      ignore(toSkip, in);
-      return field.getRecordAdvancer(in);
     }
   }
 

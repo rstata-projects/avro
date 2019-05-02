@@ -25,14 +25,15 @@ import java.util.Map;
 
 import org.apache.avro.Resolver;
 import org.apache.avro.Schema;
+import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 
 public class GenericDatumReader2<D> implements DatumReader<D> {
-  private final Advancer.Record advancer;
-  private final GenericData data;
+  protected final Advancer advancer;
+  protected final GenericData data;
 
-  private GenericDatumReader2(Advancer.Record a, GenericData d) {
+  protected GenericDatumReader2(Advancer a, GenericData d) {
     advancer = a;
     data = d;
   }
@@ -44,15 +45,15 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
   public static GenericDatumReader2 getReaderFor(Schema writer, Schema reader, GenericData d) {
     // TODO: add caching
     Resolver.Action a = Resolver.resolve(writer, reader, d);
-    Advancer.Record r = (Advancer.Record) Advancer.from(a);
-    return new GenericDatumReader2(r, d);
+    Advancer adv = Advancer.from(a);
+    return new GenericDatumReader2(adv, d);
   }
 
   public D read(D reuse, Decoder in) throws IOException {
-    return null;
+    return (D) read(reuse, advancer, in);
   }
 
-  public Object read(Object reuse, Advancer a, Decoder in) throws IOException {
+  protected Object read(Object reuse, Advancer a, Decoder in) throws IOException {
     switch (a.reader.getType()) {
     case NULL:
       return a.nextNull(in);
@@ -77,7 +78,7 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     }
 
     case ARRAY: {
-      Advancer.Container c = advancer.getArrayAdvancer(in);
+      Advancer.Array c = (Advancer.Array) advancer;
       Advancer ec = c.elementAdvancer;
       long i = c.firstChunk(in);
       if (reuse instanceof GenericArray) {
@@ -99,9 +100,9 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     }
 
     case MAP: {
-      Advancer.Map c = advancer.getMapAdvancer(in);
+      Advancer.Map c = (Advancer.Map) advancer;
       Advancer kc = c.keyAdvancer;
-      Advancer ec = c.elementAdvancer;
+      Advancer vc = c.valAdvancer;
       long i = c.firstChunk(in);
       if (reuse instanceof Map) {
         ((Map) reuse).clear();
@@ -111,21 +112,19 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       for (; i != 0; i = c.nextChunk(in))
         for (int j = 0; j < i; j++) {
           Object key = kc.nextString(in);
-          Object val = read(null, ec, in);
+          Object val = read(null, vc, in);
           map.put(key, val);
         }
       return map;
     }
 
     case RECORD: {
-      Advancer.Record ra = advancer.getRecordAdvancer(in);
-      Object r = data.newRecord(reuse, ra.reader);
-      for (int i = 0; i < ra.advancers.length; i++) {
-        int p = ra.readerOrder[i].pos();
-        ((IndexedRecord) reuse).put(p, read(null, ra.advancers[i], in));
-      }
-      ra.done(in);
-      return r;
+      Advancer.Record ra = (Advancer.Record) a;
+      reuse = data.newRecord(reuse, ra.reader);
+      if (reuse instanceof SpecificRecordBase)
+        if (((SpecificRecordBase) reuse).fastRead(ra, in))
+          return reuse;
+      return readRecord(reuse, ra, in);
     }
 
     case UNION:
@@ -134,6 +133,20 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     default:
       throw new IllegalArgumentException("Can't handle this yet.");
     }
+  }
+
+  /** 
+   * Read a record in a generic fashion.  <code>reuse</code> cannot be
+   * <code>null</code> and must implement <code>IndexedRecord</code>.
+   */
+  protected Object readRecord(Object reuse, Advancer.Record a, Decoder in) throws IOException {
+    IndexedRecord o = (IndexedRecord) reuse;
+    for (int i = 0; i < a.advancers.length; i++) {
+      int p = a.readerOrder[i].pos();
+      o.put(p, read(null, a.advancers[i], in));
+    }
+    a.done(in);
+    return o;
   }
 
   /**
