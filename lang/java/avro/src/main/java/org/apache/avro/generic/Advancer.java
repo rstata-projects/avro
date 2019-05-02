@@ -79,8 +79,8 @@ abstract class Advancer {
   }
 
   /**
-   * The {@link Error} subclass overrides this method and
-   * throws an AvroTypeException instead.
+   * The {@link Error} subclass overrides this method and throws an
+   * AvroTypeException instead.
    */
   protected Exception exception() {
     throw new UnsupportedOperationException();
@@ -756,21 +756,19 @@ abstract class Advancer {
   //// fields, read fields out of order, and use default values.
 
   /**
-   * Advancer for records. The {@link Advancer.Record#advancers} array
-   * contains an advancer for each field, ordered according writer
-   * (which determines the order in which data must be read). The
-   * {@link Advancer.Record#readerOrder} array tells you how those
-   * advancers line up with the reader's fields. See {@link
-   * GenericDatumReader2} for guidance on how to use these fields.
-
-   * Note that a decoder <em>must</em> call {@link
-   * Advancer.Record#done} after interpreting all the elemnts in
-   * {@link Advancer.Record#advancers}.
+   * Advancer for records. The {@link Advancer.Record#advancers} array contains an
+   * advancer for each field, ordered according writer (which determines the order
+   * in which data must be read). The {@link Advancer.Record#readerOrder} array
+   * tells you how those advancers line up with the reader's fields. See
+   * {@link GenericDatumReader2} for guidance on how to use these fields.
+   * 
+   * Note that a decoder <em>must</em> call {@link Advancer.Record#done} after
+   * interpreting all the elemnts in {@link Advancer.Record#advancers}.
    *
-   * As a convenience, {@link Advancer.Record#inOrder} is set to true
-   * iff the reader and writer order agrees (i.e., iff
-   * <code>readerOrder[i].pos() == i</code> for all i). Generated code
-   * can use this to optimize this common case.
+   * As a convenience, {@link Advancer.Record#inOrder} is set to true iff the
+   * reader and writer order agrees (i.e., iff
+   * <code>readerOrder[i].pos() == i</code> for all i). Generated code can use
+   * this to optimize this common case.
    */
   public static class Record extends Advancer {
     public final Advancer[] advancers;
