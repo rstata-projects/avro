@@ -20,7 +20,6 @@ package org.apache.avro.generic;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Resolver;
@@ -81,22 +80,16 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       Advancer.Array c = (Advancer.Array) advancer;
       Advancer ec = c.elementAdvancer;
       long i = c.firstChunk(in);
-      if (reuse instanceof GenericArray) {
-        ((GenericArray) reuse).reset();
-      } else if (reuse instanceof Collection) {
-        ((Collection) reuse).clear();
-      } else
-        reuse = new GenericData.Array((int) i, a.reader);
+      reuse = data.newArray(reuse, (int) i, a.reader);
+      GenericData.Array sda = (reuse instanceof GenericData.Array ? (GenericData.Array) reuse : null);
 
       Collection array = (Collection) reuse;
       for (; i != 0; i = c.nextChunk(in))
-        for (long j = 0; j < i; j++) {
-          Object v = read(null, ec, in);
+        for (; i != 0; i--) {
+          Object v = read(sda != null ? sda.peek() : null, ec, in);
           // TODO -- logical type conversion
           array.add(v);
         }
-      if (array instanceof GenericArray<?>)
-        ((GenericArray<?>) array).prune();
     }
 
     case MAP: {
@@ -104,13 +97,9 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       Advancer kc = c.keyAdvancer;
       Advancer vc = c.valAdvancer;
       long i = c.firstChunk(in);
-      if (reuse instanceof Map) {
-        ((Map) reuse).clear();
-      } else
-        reuse = new HashMap<Object, Object>((int) i);
-      Map map = (Map) reuse;
+      Map map = (Map) data.newMap(reuse, (int) i);
       for (; i != 0; i = c.nextChunk(in))
-        for (int j = 0; j < i; j++) {
+        for (; i != 0; i--) {
           Object key = kc.nextString(in);
           Object val = read(null, vc, in);
           map.put(key, val);
