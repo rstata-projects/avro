@@ -57,19 +57,23 @@ public class TestGenericDatumReader {
   }
 
   @Test
-  public void testResolution() throws IOException {
-    ByteArrayOutputStream os = new ByteArrayOutputStream();
-    Encoder e = EncoderFactory.get().binaryEncoder(os, null);
+  public void testResolution() throws Exception {
+    try {
+      ByteArrayOutputStream os = new ByteArrayOutputStream();
+      Encoder e = EncoderFactory.get().binaryEncoder(os, null);
 
-    DatumWriter<Object> w = new GenericDatumWriter<>(writerSchema);
-    w.write(input, e);
-    e.flush();
+      DatumWriter<Object> w = new GenericDatumWriter<>(writerSchema);
+      w.write(input, e);
+      e.flush();
 
-    ByteArrayInputStream is = new ByteArrayInputStream(os.toByteArray());
-    Decoder d = DecoderFactory.get().binaryDecoder(is, null);
-    DatumReader<Object> r = GenericDatumReader2.getReaderFor(writerSchema, readerSchema, GENERIC_DATA);
-    Object output = r.read(null, d);
-    Assert.assertEquals(description, expectedOutput, output);
+      ByteArrayInputStream is = new ByteArrayInputStream(os.toByteArray());
+      Decoder d = DecoderFactory.get().binaryDecoder(is, null);
+      DatumReader<Object> r = GenericDatumReader2.getReaderFor(writerSchema, readerSchema, GENERIC_DATA);
+      Object output = r.read(null, d);
+      Assert.assertEquals(description, expectedOutput, output);
+    } catch (Exception e) {
+      throw new Exception("Error in \"" + description + "\"", e);
+    }
   }
 
   @Parameterized.Parameters
