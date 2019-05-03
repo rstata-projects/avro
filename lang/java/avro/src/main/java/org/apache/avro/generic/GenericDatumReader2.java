@@ -71,7 +71,7 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     case BYTES:
       return a.nextBytes(in, (ByteBuffer) reuse);
     case ENUM:
-      return a.nextEnum(in);
+      return data.createEnum(a.reader.getEnumSymbols().get(in.readEnum()), a.reader);
     case FIXED: {
       GenericFixed fixed = (GenericFixed) data.createFixed(reuse, a.reader);
       a.nextFixed(in, fixed.bytes());
