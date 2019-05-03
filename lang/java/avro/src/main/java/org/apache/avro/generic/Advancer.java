@@ -139,7 +139,10 @@ public abstract class Advancer {
     return nextFixed(in, bytes, 0, bytes.length);
   }
 
-  /** Get index for a union. */
+  /** Get index for a union.  Note that this is to be used by
+   * {@link getBranchAdvancer) only -- it does not neccessarily
+   * reflect the index of the original schemas.
+   */
   public int nextIndex(Decoder in) throws IOException {
     exception();
     return 0;
@@ -149,7 +152,7 @@ public abstract class Advancer {
    * Access to contained advancer for unions. You must call
    * {@link Advancer#nextIndex} before calling this method.
    */
-  public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException {
+  public Advancer getBranchAdvancer(Decoder in, int index) throws IOException {
     exception();
     return null;
   }
@@ -228,10 +231,19 @@ public abstract class Advancer {
     case WRITER_UNION:
       Resolver.WriterUnion wu = (Resolver.WriterUnion) a;
       Advancer[] branches = new Advancer[wu.actions.length];
-      for (int i = 0; i < branches.length; i++)
-        branches[i] = Advancer.from(wu.actions[i]);
-      if (wu.unionEquiv)
-        return new EquivUnion(a.writer, a.reader, branches);
+      for (int i = 0; i < branches.length; i++) {
+        Resolver.Action ba = wu.actions[i];
+        if (ba instanceof Resolver.ReaderUnion)
+          branches[i] = Advancer.from(((Resolver.ReaderUnion) ba).actualAction);
+        else
+          branches[i] = Advancer.from(ba);
+      }
+      if (a.reader.getType() == Schema.Type.UNION) {
+        if (wu.unionEquiv)
+          return new EquivUnion(a.writer, a.reader, branches);
+        else
+          return new UnionUnion(a.writer, a.reader, branches);
+      }
       return new WriterUnion(a.writer, a.reader, branches);
 
     case READER_UNION:
@@ -680,20 +692,36 @@ public abstract class Advancer {
    * In this case, reader and writer have the same union, so let the decoder
    * consume it as a regular union.
    */
-  private static class EquivUnion extends Advancer {
+  private static class UnionUnion extends Advancer {
     private final Advancer[] branches;
 
-    public EquivUnion(Schema w, Schema r, Advancer[] b) {
+    public UnionUnion(Schema w, Schema r, Advancer[] b) {
       super(w, r);
       branches = b;
     }
 
     public int nextIndex(Decoder in) throws IOException {
-      return in.readIndex();
+      int i = in.readIndex();
+      if (branches[i] instanceof Error) branches[i].nextIndex(in); // Force error
+      return i;
     }
 
     public Advancer getBranchAdvancer(Decoder in, int branch) throws IOException {
       return branches[branch];
+    }
+  }
+
+  /**
+   * In this case, reader and writer have the same union, so let the decoder
+   * consume it as a regular union.
+   */
+  private static class EquivUnion extends UnionUnion {
+    public EquivUnion(Schema w, Schema r, Advancer[] b) {
+      super(w, r, b);
+    }
+
+    public int nextIndex(Decoder in) throws IOException {
+      return in.readIndex();
     }
   }
 
@@ -932,6 +960,7 @@ public abstract class Advancer {
 
     // TODO -- finish for the rest of the types
   }
+
 
   private static void ignore(Schema[] toIgnore, Decoder in) throws IOException {
     for (Schema s : toIgnore)

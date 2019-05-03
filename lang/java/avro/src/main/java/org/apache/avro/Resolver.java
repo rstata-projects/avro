@@ -534,10 +534,13 @@ public class Resolver {
    * variable is set to true and the <tt>actions</tt> list holds the resolutions
    * of each branch of the writer against the corresponding branch of the reader
    * (which will result in no material resolution work, because the branches will
-   * be equivalent). If they reader is not a union or is a different union, then
+   * be equivalent). If the reader is not a union or is a different union, then
    * <tt>unionEquiv</tt> is false and the <tt>actions</tt> list holds the
    * resolution of each of the writer's branches against the entire schema of the
-   * reader (if the reader is a union, that will result in ReaderUnion actions).
+   * reader.  If the reader and writer are both unions and <tt>unionEquiv</tt> is
+   * true, then all elements of <code>actions</code> will be either an a {@link
+   * ReaderUnion} or an {@link Error} (because the reader has no equivalent branch
+   * for that writer's branch).
    */
   public static class WriterUnion extends Action {
     public final Action[] actions;
