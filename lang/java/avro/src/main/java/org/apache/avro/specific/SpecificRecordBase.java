@@ -105,10 +105,11 @@ public abstract class SpecificRecordBase
   }
 
   /**
-   * Returns true iff an instance supports the {@link #encode} and {@link #decode}
-   * operations. Should only be used by <code>SpecificDatumReader/Writer</code> to
-   * selectively use {@link #customEncode} and {@link #customDecode} to optimize
-   * the (de)serialization of values.
+   * Returns true iff an instance supports the {@link #customEncode(Encoder)} and
+   * {@link #customDecode(ResolvingDecoder)} operations. Should only be used by
+   * <code>SpecificDatumReader/Writer</code> to selectively use
+   * {@link #customEncode} and {@link #customDecode} to optimize the
+   * (de)serialization of values.
    */
   protected boolean hasCustomCoders() {
     return false;

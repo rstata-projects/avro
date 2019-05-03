@@ -70,6 +70,8 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       return (String) a.nextString(in);
     case BYTES:
       return a.nextBytes(in, (ByteBuffer) reuse);
+    case ENUM:
+      return a.nextEnum(in);
     case FIXED: {
       GenericFixed fixed = (GenericFixed) data.createFixed(reuse, a.reader);
       a.nextFixed(in, fixed.bytes());
@@ -90,6 +92,7 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
           // TODO -- logical type conversion
           array.add(v);
         }
+      return array;
     }
 
     case MAP: {

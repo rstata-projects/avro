@@ -355,8 +355,8 @@ public abstract class Advancer {
   //// is call the corresponding method on the Decoder.
 
   private static class NullFast extends Advancer {
-    public static final NullFast INSTANCE = new NullFast();
     private static final Schema S = Schema.create(Schema.Type.NULL);
+    public static final NullFast INSTANCE = new NullFast();
 
     private NullFast() {
       super(S, S);
@@ -369,8 +369,8 @@ public abstract class Advancer {
   }
 
   private static class BooleanFast extends Advancer {
-    public static final BooleanFast INSTANCE = new BooleanFast();
     private static final Schema S = Schema.create(Schema.Type.BOOLEAN);
+    public static final BooleanFast INSTANCE = new BooleanFast();
 
     private BooleanFast() {
       super(S, S);
@@ -382,8 +382,8 @@ public abstract class Advancer {
   }
 
   private static class IntFast extends Advancer {
-    public static final IntFast INSTANCE = new IntFast();
     private static final Schema S = Schema.create(Schema.Type.INT);
+    public static final IntFast INSTANCE = new IntFast();
 
     private IntFast() {
       super(S, S);
@@ -395,8 +395,8 @@ public abstract class Advancer {
   }
 
   private static class LongFast extends Advancer {
-    public static final LongFast INSTANCE = new LongFast();
     private static final Schema S = Schema.create(Schema.Type.LONG);
+    public static final LongFast INSTANCE = new LongFast();
 
     private LongFast() {
       super(S, S);
@@ -408,8 +408,8 @@ public abstract class Advancer {
   }
 
   private static class FloatFast extends Advancer {
-    public static final FloatFast INSTANCE = new FloatFast();
     private static final Schema S = Schema.create(Schema.Type.FLOAT);
+    public static final FloatFast INSTANCE = new FloatFast();
 
     private FloatFast() {
       super(S, S);
@@ -421,8 +421,8 @@ public abstract class Advancer {
   }
 
   private static class DoubleFast extends Advancer {
-    public static final DoubleFast INSTANCE = new DoubleFast();
     private static final Schema S = Schema.create(Schema.Type.DOUBLE);
+    public static final DoubleFast INSTANCE = new DoubleFast();
 
     private DoubleFast() {
       super(S, S);
@@ -434,8 +434,8 @@ public abstract class Advancer {
   }
 
   private static class StringFast extends Advancer {
-    public static final StringFast INSTANCE = new StringFast();
     private static final Schema S = Schema.create(Schema.Type.STRING);
+    public static final StringFast INSTANCE = new StringFast();
 
     private StringFast() {
       super(S, S);
@@ -451,8 +451,8 @@ public abstract class Advancer {
   }
 
   private static class BytesFast extends Advancer {
-    public static final BytesFast INSTANCE = new BytesFast();
     private static final Schema S = Schema.create(Schema.Type.BYTES);
+    public static final BytesFast INSTANCE = new BytesFast();
 
     private BytesFast() {
       super(S, S);
