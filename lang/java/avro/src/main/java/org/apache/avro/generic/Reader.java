@@ -22,73 +22,94 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Map;
 
-import org.apache.avro.Resolver;
-import org.apache.avro.Schema;
 import org.apache.avro.specific.SpecificRecordBase;
-import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 
-public class GenericDatumReader2<D> implements DatumReader<D> {
-  protected final Advancer advancer;
-  protected final GenericData data;
+public class Reader {
 
-  protected GenericDatumReader2(Advancer a, GenericData d) {
-    advancer = a;
-    data = d;
+  public static <D> D read(D reuse, Advancer a, Decoder in) throws IOException {
+    Object result = read0(reuse, a, DataFactory.getDefault(), in);
+    LogicalType logicalType = a.reader.getLogicalType();
+    if (logicalType != null) {
+      Conversion<?> conversion = data.getConversionFor(logicalType);
+      if (conversion != null) {
+        result= convert(result, a.reader, logicalType, conversion);
+      }
+    }
   }
 
-  /**
-   * ... Document how we use <code>d:</code> to create fixed, array, map, and
-   * record objects.
-   */
-  public static GenericDatumReader2 getReaderFor(Schema writer, Schema reader, GenericData d) {
-    // TODO: add caching
-    Resolver.Action a = Resolver.resolve(writer, reader, d);
-    Advancer adv = Advancer.from(a);
-    return new GenericDatumReader2(adv, d);
+  public static <D> D read(D reuse, Advancer a, DataFactory df, Decoder in)
+    throws IOException
+  {
+    return (D) read0(reuse, a, df, in);
+    LogicalType logicalType = a.reader.getLogicalType();
+    if (logicalType != null) {
+      Conversion<?> conversion = data.getConversionFor(logicalType);
+      if (conversion != null) {
+        result= convert(result, a.reader, logicalType, conversion);
+      }
+    }
   }
 
-  public D read(D reuse, Decoder in) throws IOException {
-    return (D) read(reuse, advancer, in);
-  }
-
-  protected Object read(Object reuse, Advancer a, Decoder in) throws IOException {
+  private static Object read0(Object reuse, Advancer a, DataFactory df, Decoder in)
+    throws IOException
+  {
     switch (a.reader.getType()) {
     case NULL:
       return a.nextNull(in);
+
     case BOOLEAN:
       return (Boolean) a.nextBoolean(in);
+
     case INT:
       return (Integer) a.nextInt(in);
+
     case LONG:
       return (Long) a.nextLong(in);
+
     case FLOAT:
       return (Float) a.nextFloat(in);
+
     case DOUBLE:
       return (Double) a.nextDouble(in);
+
     case STRING:
       return a.nextString(in);
+
     case BYTES:
       return a.nextBytes(in, (ByteBuffer) reuse);
+
     case ENUM:
-      return data.createEnum(a.reader.getEnumSymbols().get(in.readEnum()), a.reader);
+      return df.newEnum(a.reader.getEnumSymbols().get(in.readEnum()), a.reader);
+
     case FIXED: {
-      GenericFixed fixed = (GenericFixed) data.createFixed(reuse, a.reader);
-      a.nextFixed(in, fixed.bytes());
-      return fixed;
+      int sz = a.reader.getFixedSize();
+      byte[] bytes;
+      if (reuse instanceof GenericFixed
+          && (bytes = ((GenericFixed) reuse).bytes()).length == sz)
+        ;
+      else {
+        bytes = new byte[sz];
+        reuse = df.newFixed(bytes, a.reader);
+      }
+      a.nextFixed(in, bytes);
+      return reuse;
     }
+
+    case UNION:
+      return read0(reuse, advancer.getBranchAdvancer(in, advancer.nextIndex(in)), df, in);
 
     case ARRAY: {
       Advancer.Array c = (Advancer.Array) advancer;
       Advancer ec = c.elementAdvancer;
       long i = c.firstChunk(in);
-      reuse = data.newArray(reuse, (int) i, a.reader);
+      reuse = df.newArray(reuse, (int) i, a.reader);
       GenericData.Array sda = (reuse instanceof GenericData.Array ? (GenericData.Array) reuse : null);
 
       Collection array = (Collection) reuse;
       for (; i != 0; i = c.nextChunk(in))
         for (; i != 0; i--) {
-          Object v = read(sda != null ? sda.peek() : null, ec, in);
+          Object v = read0(sda != null ? sda.peek() : null, ec, df, in);
           // TODO -- logical type conversion
           array.add(v);
         }
@@ -100,11 +121,11 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
       Advancer kc = c.keyAdvancer;
       Advancer vc = c.valAdvancer;
       long i = c.firstChunk(in);
-      Map map = data.newMap(reuse, (int) i);
+      Map map = (Map) df.newMap(reuse, (int) i);
       for (; i != 0; i = c.nextChunk(in))
         for (; i != 0; i--) {
           Object key = kc.nextString(in);
-          Object val = read(null, vc, in);
+          Object val = read0(null, vc, df, in);
           map.put(key, val);
         }
       return map;
@@ -112,40 +133,20 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
 
     case RECORD: {
       Advancer.Record ra = (Advancer.Record) a;
-      reuse = data.newRecord(reuse, ra.reader);
+      IndexRecord o = df.newRecord(reuse, ra.reader);
       if (reuse instanceof SpecificRecordBase)
-        if (((SpecificRecordBase) reuse).fastRead(ra, in))
+        if (((SpecificRecordBase) reuse).fastRead0(ra, df, in))
           return reuse;
-      return readRecord(reuse, ra, in);
+      for (int i = 0; i < a.advancers.length; i++) {
+        int p = a.readerOrder[i].pos();
+        o.put(p, read0(null, a.advancers[i], df, in));
+      }
+      a.done(in);
+      return o;
     }
-
-    case UNION:
-      return read(reuse, advancer.getBranchAdvancer(in, advancer.nextIndex(in)), in);
 
     default:
       throw new IllegalArgumentException("Can't handle this yet.");
     }
-  }
-
-  /**
-   * Read a record in a generic fashion. <code>reuse</code> cannot be
-   * <code>null</code> and must implement <code>IndexedRecord</code>.
-   */
-  protected Object readRecord(Object reuse, Advancer.Record a, Decoder in) throws IOException {
-    IndexedRecord o = (IndexedRecord) reuse;
-    for (int i = 0; i < a.advancers.length; i++) {
-      int p = a.readerOrder[i].pos();
-      o.put(p, read(null, a.advancers[i], in));
-    }
-    a.done(in);
-    return o;
-  }
-
-  /**
-   * Throws {@link UnsupportedOperationException}. (In retrospect, making
-   * DatumReaders mutable wasn't a good idea...)
-   */
-  public void setSchema(Schema s) {
-    throw new UnsupportedOperationException();
   }
 }

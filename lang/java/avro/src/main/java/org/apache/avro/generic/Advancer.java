@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Resolver;
+import org.apache.avro.Resolver.Action;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.util.Utf8;
@@ -32,7 +33,7 @@ import org.apache.avro.util.Utf8;
  * values out of a {@link Decoder}.
  *
  * An Advancer tree is created by calling
- * {@link Advancer#from(Resolver.Action)}. The resulting tree mimics the reader
+ * {@link Advancer#from(Action)}. The resulting tree mimics the reader
  * schema of that Action object.
  *
  * A decoder for the reader schema is meant to traverse that schema in a
@@ -65,11 +66,17 @@ public abstract class Advancer {
   //// an integer is read with no promotion) overrides just
   //// readInt.
 
+  public final DataFactory dataFactory;
   public final Schema writer, reader;
+  public final LogicalType logicalType
+  public final Conversion<?> conversion;
 
-  protected Advancer(Schema w, Schema r) {
-    this.writer = w;
-    this.reader = r;
+  protected Advancer(DataFactory df, Schema w, Schema r, LogicalType lt, Conversion<?> c) {
+    dataFactory = df;
+    writer = w;
+    reader = r;
+    logicalType = lt;
+    conversion = c;
   }
 
   /**
@@ -161,78 +168,76 @@ public abstract class Advancer {
   ////// this implementation are found below.
 
   /**
-   * Build a {@link Advancer} tree that for a given {@link Resolver.Action} tree.
+   * Build a {@link Advancer} tree that for a given {@link Action} tree.
    * If input argument (<code>a</code>) is a {@link Resolver.RecordAdjust}, the
    * result is guaranteed to be a {@link Advancer.Record}.
    */
-  public static Advancer from(Resolver.Action a) {
+  public static Advancer from(Action a, DataFactory df) {
+    LogicalType lt = a.reader.getLogicalType();
+    Conversion<?> conv = (lt == null ? null : df.getConversionFor(lt);
     switch (a.type) {
     case DO_NOTHING:
       switch (a.reader.getType()) {
       case NULL:
-        return NullFast.INSTANCE;
+        return Null.from(a, df, lt, conv);
       case BOOLEAN:
-        return BooleanFast.INSTANCE;
+        return Boolean.from(a, df, lt, conv);
       case INT:
-        return IntFast.INSTANCE;
+        return Int.from(a, df, lt, conv);
       case LONG:
-        return LongFast.INSTANCE;
+        return Long.from(a, df, lt, conv);
       case FLOAT:
-        return FloatFast.INSTANCE;
+        return Float.from(a, df, lt, conv);
       case DOUBLE:
-        return DoubleFast.INSTANCE;
+        return Double.from(a, df, lt, conv);
       case STRING:
-        return StringFast.INSTANCE;
+        return String.from(a, df, lt, conv);
       case BYTES:
-        return BytesFast.INSTANCE;
+        return Bytes.from(a, df, lt, conv);
       case FIXED:
-        return new FixedFast(a.writer, a.reader);
+        return new Fixed.from(a, df, lt, conv);
       default:
         throw new IllegalArgumentException("Unexpected schema for DoNothing:" + a.reader);
       }
     case PROMOTE:
       switch (((Resolver.Promote) a).promotion) {
       case INT2LONG:
-        return LongFromInt.INSTANCE;
+        return LongFromInt.from(a, df, lt, conv);
       case INT2FLOAT:
-        return FloatFromInt.INSTANCE;
+        return FloatFromInt.from(a, df, lt, conv);
       case INT2DOUBLE:
-        return DoubleFromInt.INSTANCE;
+        return DoubleFromInt.from(a, df, lt, conv);
       case LONG2FLOAT:
-        return FloatFromLong.INSTANCE;
+        return FloatFromLong.from(a, df, lt, conv);
       case LONG2DOUBLE:
-        return DoubleFromLong.INSTANCE;
+        return DoubleFromLong.from(a, df, lt, conv);
       case FLOAT2DOUBLE:
-        return DoubleFromFloat.INSTANCE;
+        return DoubleFromFloat.from(a, df, lt, conv);
       case STRING2BYTES:
-        return BytesFromString.INSTANCE;
+        return BytesFromString.from(a, df, lt, conv);
       case BYTES2STRING:
-        return StringFromBytes.INSTANCE;
+        return StringFromBytes.from(a, df, lt, conv);
       default:
         throw new IllegalArgumentException("Unexpected promotion:" + a);
       }
+
     case ENUM:
-      Resolver.EnumAdjust e = (Resolver.EnumAdjust) a;
-      if (e.noAdjustmentsNeeded)
-        return new EnumFast(a.writer, a.reader);
-      else
-        return new EnumWithAdjustments(a.writer, a.reader, e.adjustments);
+      return Enum.from((Resolver.EnumAdjust) a, df, lt, conv);
 
     case CONTAINER:
-      Advancer ea = Advancer.from(((Resolver.Container) a).elementAction);
       if (a.writer.getType() == Schema.Type.ARRAY)
-        return new Array(a.writer, a.reader, ea);
+        return Array.from((Resolver.Container) a, df, lt, conv);
       else
-        return new Map(a.writer, a.reader, ea);
+        return Map.from((Resolver.Container) a, df, lt, conv);
 
     case RECORD:
-      return Advancer.Record.from((Resolver.RecordAdjust) a);
+      return Advancer.Record.from((Resolver.RecordAdjust) a, df, lt, conv);
 
     case WRITER_UNION:
       Resolver.WriterUnion wu = (Resolver.WriterUnion) a;
       Advancer[] branches = new Advancer[wu.actions.length];
       for (int i = 0; i < branches.length; i++) {
-        Resolver.Action ba = wu.actions[i];
+        Action ba = wu.actions[i];
         if (ba instanceof Resolver.ReaderUnion)
           branches[i] = Advancer.from(((Resolver.ReaderUnion) ba).actualAction);
         else
@@ -259,10 +264,10 @@ public abstract class Advancer {
     }
   }
 
-  private static Schema[] collectSkips(Resolver.Action[] actions, int start) {
+  private static Schema[] collectSkips(Action[] actions, int start) {
     Schema[] result = EMPTY_SCHEMA_ARRAY;
     int j = start;
-    while (j < actions.length && actions[j].type == Resolver.Action.Type.SKIP)
+    while (j < actions.length && actions[j].type == Action.Type.SKIP)
       j++;
     if (start < j) {
       result = new Schema[j - start];
@@ -366,43 +371,55 @@ public abstract class Advancer {
   //// resolution logic to be applied. All that needs to be done
   //// is call the corresponding method on the Decoder.
 
-  private static class NullFast extends Advancer {
+  private static class Null extends Advancer {
     private static final Schema S = Schema.create(Schema.Type.NULL);
-    public static final NullFast INSTANCE = new NullFast();
+    private static final Null INSTANCE = new Null();
 
-    private NullFast() {
-      super(S, S);
+    private Null() {
+        super(DataFactory.getDefault(), S, S, null, null);
     }
 
     public Object nextNull(Decoder in) throws IOException {
       in.readNull();
       return null;
     }
+
+    public static Advancer from(Advancer a, DataFactory df, LogicalType lt, Conversion<?> c) {
+      return Converter.from(INSTANCE, df, lt, c);
+    }
   }
 
-  private static class BooleanFast extends Advancer {
+  private static class Boolean extends Advancer {
     private static final Schema S = Schema.create(Schema.Type.BOOLEAN);
-    public static final BooleanFast INSTANCE = new BooleanFast();
+    public static final Boolean INSTANCE = new Boolean();
 
-    private BooleanFast() {
-      super(S, S);
+    private Boolean() {
+      super(DataFactory.getDefault(), S, S, null, null);
     }
 
     public boolean nextBoolean(Decoder in) throws IOException {
       return in.readBoolean();
     }
+
+    public static Advancer from(Advancer a, DataFactory df, LogicalType lt, Conversion<?> c) {
+      return Converter.from(INSTANCE, df, lt, c);
+    }
   }
 
-  private static class IntFast extends Advancer {
+  private static class Int extends Advancer {
     private static final Schema S = Schema.create(Schema.Type.INT);
     public static final IntFast INSTANCE = new IntFast();
 
-    private IntFast() {
-      super(S, S);
+    private Int() {
+      super(DataFactory.getDefault(), S, S, null, null);
     }
 
     public int nextInt(Decoder in) throws IOException {
       return in.readInt();
+    }
+
+    public static Advancer from(Advancer a, DataFactory df, LogicalType lt, Conversion<?> c) {
+      return Converter.from(INSTANCE, df, lt, c);
     }
   }
 
@@ -534,7 +551,7 @@ public abstract class Advancer {
     }
 
     public float nextFloat(Decoder in) throws IOException {
-      return (long) in.readLong();
+      return (float) in.readLong();
     }
   }
 
