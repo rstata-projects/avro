@@ -24,7 +24,6 @@ import java.util.Map;
 
 import org.apache.avro.Resolver;
 import org.apache.avro.Schema;
-import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 

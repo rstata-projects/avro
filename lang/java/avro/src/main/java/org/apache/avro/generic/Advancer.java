@@ -35,9 +35,8 @@ import org.apache.avro.specific.SpecificData;
  * An "Advancer" is a tree of objects that apply resolution logic while reading
  * values out of a {@link Decoder}.
  *
- * An Advancer tree is created by calling
- * {@link Advancer#from(Action)}. The resulting tree mimics the reader
- * schema of that Action object.
+ * An Advancer tree is created by calling {@link Advancer#from(Action)}. The
+ * resulting tree mimics the reader schema of that Action object.
  *
  * A decoder for the reader schema is meant to traverse that schema in a
  * depth-first fashion. When it hits a leaf of type <code>Xyz</code>, it should
@@ -147,9 +146,10 @@ public abstract class Advancer {
     return nextFixed(in, bytes, 0, bytes.length);
   }
 
-  /** Get index for a union.  Note that this is to be used by
-   * {@link getBranchAdvancer) only -- it does not neccessarily
-   * reflect the index of the original schemas.
+  /**
+   * Get index for a union. Note that this is to be used by
+   * {@link getBranchAdvancer) only -- it does not neccessarily reflect the index
+   * of the original schemas.
    */
   public int nextIndex(Decoder in) throws IOException {
     exception();
@@ -169,9 +169,9 @@ public abstract class Advancer {
   ////// this implementation are found below.
 
   /**
-   * Build a {@link Advancer} tree that for a given {@link Action} tree.
-   * If input argument (<code>a</code>) is a {@link Resolver.RecordAdjust}, the
-   * result is guaranteed to be a {@link Advancer.Record}.
+   * Build a {@link Advancer} tree that for a given {@link Action} tree. If input
+   * argument (<code>a</code>) is a {@link Resolver.RecordAdjust}, the result is
+   * guaranteed to be a {@link Advancer.Record}.
    */
   public static Advancer from(Action a) {
     return from(SpecificData.getForSchema(a.reader), a);
@@ -262,8 +262,7 @@ public abstract class Advancer {
 
     case READER_UNION:
       Resolver.ReaderUnion ru = (Resolver.ReaderUnion) a;
-      return new ReaderUnion(a, lt, conv, ru.firstMatch,
-                             Advancer.from(d, ru.actualAction));
+      return new ReaderUnion(a, lt, conv, ru.firstMatch, Advancer.from(d, ru.actualAction));
 
     case ERROR:
       return new Error(a, a.toString());
@@ -366,7 +365,7 @@ public abstract class Advancer {
       Action a = Resolver.resolve(s, s);
       KA = new StringFast(a, null, null);
     }
- 
+
     public final Advancer keyAdvancer = KA;
     public final Advancer valAdvancer;
 
@@ -591,9 +590,7 @@ public abstract class Advancer {
   private static class EnumWithAdjustments extends Advancer {
     private final int[] adjustments;
 
-    public EnumWithAdjustments(Action a, LogicalType lt, Conversion conv,
-                               int[] adjustments)
-    {
+    public EnumWithAdjustments(Action a, LogicalType lt, Conversion conv, int[] adjustments) {
       super(a, lt, conv);
       this.adjustments = adjustments;
     }
@@ -686,7 +683,8 @@ public abstract class Advancer {
 
     public int nextIndex(Decoder in) throws IOException {
       int i = in.readIndex();
-      if (branches[i] instanceof Error) branches[i].nextIndex(in); // Force error
+      if (branches[i] instanceof Error)
+        branches[i].nextIndex(in); // Force error
       return i;
     }
 
@@ -754,9 +752,7 @@ public abstract class Advancer {
     public final Schema.Field[] readerOrder;
     public final boolean inOrder;
 
-    private Record(Action a, LogicalType lt, Conversion conv,
-                   Advancer[] adv, Schema[] s, Schema.Field[] o, boolean f)
-    {
+    private Record(Action a, LogicalType lt, Conversion conv, Advancer[] adv, Schema[] s, Schema.Field[] o, boolean f) {
       super(a, lt, conv);
       this.advancers = adv;
       this.finalSkips = s;
@@ -772,8 +768,7 @@ public abstract class Advancer {
       ignore(finalSkips, in);
     }
 
-    protected static Advancer from(SpecificData d, Resolver.RecordAdjust ra,
-                                   LogicalType lt, Conversion conv) {
+    protected static Advancer from(SpecificData d, Resolver.RecordAdjust ra, LogicalType lt, Conversion conv) {
       /** Two cases: reader + writer agree on order, vs disagree. */
       /** This is the complicated case, since skipping is involved. */
       /** Special subclasses of Advance will encapsulate skipping. */
@@ -795,8 +790,7 @@ public abstract class Advancer {
         Action fa = ra.fieldActions[i++];
         Advancer fieldAdv = Advancer.from(d, fa);
         if (toSkip.length != 0)
-          fieldAdv = new RecordField(fa, fieldAdv.logicalType, fieldAdv.conversion,
-                                     toSkip, fieldAdv);
+          fieldAdv = new RecordField(fa, fieldAdv.logicalType, fieldAdv.conversion, toSkip, fieldAdv);
         fieldAdvs[nrf] = fieldAdv;
       }
 
@@ -842,9 +836,7 @@ public abstract class Advancer {
     private final Schema[] toSkip;
     private final Advancer field;
 
-    public RecordField(Action a, LogicalType lt, Conversion conv,
-                       Schema[] toSkip, Advancer field)
-    {
+    public RecordField(Action a, LogicalType lt, Conversion conv, Schema[] toSkip, Advancer field) {
       super(a, lt, conv);
       this.toSkip = toSkip;
       this.field = field;
@@ -954,7 +946,6 @@ public abstract class Advancer {
 
     // TODO -- finish for the rest of the types
   }
-
 
   private static void ignore(Schema[] toIgnore, Decoder in) throws IOException {
     for (Schema s : toIgnore)

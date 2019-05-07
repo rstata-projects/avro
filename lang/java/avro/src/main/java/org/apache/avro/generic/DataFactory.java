@@ -17,16 +17,11 @@
  */
 package org.apache.avro.generic;
 
-import java.io.IOException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.Advancer;
-import org.apache.avro.io.Decoder;
 import org.apache.avro.specific.SpecificData;
-
 
 /**
  * Factory for creating objects while decoding an Avro input stream.
@@ -37,8 +32,8 @@ public class DataFactory {
 
   /**
    * This class is a cleaned-up version of {@link GenericData} and
-   * {@link SpecificData}.  Delegate to {@link SpecificData} when the
-   * two classes have functionality that overlaps.
+   * {@link SpecificData}. Delegate to {@link SpecificData} when the two classes
+   * have functionality that overlaps.
    */
   private final SpecificData data;
 

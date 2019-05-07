@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Map;
 
 import org.apache.avro.Conversions;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.avro.io.Decoder;
 
@@ -33,19 +32,14 @@ public class Reader {
     return (D) read(reuse, a, DataFactory.getDefault(a), in);
   }
 
-  public static <D> D read(D reuse, Advancer a, DataFactory df, Decoder in)
-    throws IOException
-  {
+  public static <D> D read(D reuse, Advancer a, DataFactory df, Decoder in) throws IOException {
     Object result = read0(reuse, a, df, in);
     if (a.conversion != null)
-      result = Conversions.convertToLogicalType(result, a.reader,
-                                                a.logicalType, a.conversion);
+      result = Conversions.convertToLogicalType(result, a.reader, a.logicalType, a.conversion);
     return (D) result;
   }
 
-  private static Object read0(Object reuse, Advancer a, DataFactory df, Decoder in)
-    throws IOException
-  {
+  private static Object read0(Object reuse, Advancer a, DataFactory df, Decoder in) throws IOException {
     switch (a.reader.getType()) {
     case NULL:
       return a.nextNull(in);
@@ -77,8 +71,7 @@ public class Reader {
     case FIXED:
       int sz = a.reader.getFixedSize();
       byte[] bytes;
-      if (reuse instanceof GenericFixed
-          && (bytes = ((GenericFixed) reuse).bytes()).length == sz)
+      if (reuse instanceof GenericFixed && (bytes = ((GenericFixed) reuse).bytes()).length == sz)
         ;
       else {
         GenericFixed o = df.newFixed(a.reader);
