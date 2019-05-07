@@ -24,6 +24,7 @@ import java.io.IOException;
 
 import org.apache.avro.Conversion;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.DataFactory;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.ResolvingDecoder;
 import org.apache.avro.io.Encoder;
@@ -34,20 +35,23 @@ import org.apache.avro.generic.Advancer;
 public abstract class SpecificRecordBase
     implements SpecificRecord, Comparable<SpecificRecord>, GenericRecord, Externalizable {
 
+  protected SpecificRecordBase() {
+  }
+
   @Override
   public abstract Schema getSchema();
-
-  @Override
-  public abstract Object get(int field);
-
-  @Override
-  public abstract void put(int field, Object value);
 
   public SpecificData getSpecificData() {
     // Default implementation for backwards compatibility, overridden in generated
     // code
     return SpecificData.get();
   }
+
+  @Override
+  public abstract void put(int field, Object value);
+
+  @Override
+  public abstract Object get(int field);
 
   public Conversion<?> getConversion(int field) {
     // for backward-compatibility. no older specific classes have conversions.
@@ -136,7 +140,7 @@ public abstract class SpecificRecordBase
    * <code>this</code>, and <code>ra.writer</code> the schema used to write
    * <code>in</code>. Unpredictable things will happen if this is not the case.
    */
-  public boolean fastRead(Advancer.Record ra, Decoder in) {
+  public boolean fastRead(Advancer.Record ra, DataFactory df, Decoder in) {
     return false;
   }
 }

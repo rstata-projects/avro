@@ -1333,7 +1333,7 @@ public class GenericData {
    * different array implementation. By default, this returns a
    * {@link GenericData.Array}.
    */
-  protected Collection newArray(Object old, int size, Schema schema) {
+  public Collection newArray(Object old, int size, Schema schema) {
     if (old instanceof GenericArray) {
       GenericArray ga = (GenericArray) old;
       ga.reset();
@@ -1350,7 +1350,7 @@ public class GenericData {
    * Called to create new array instances. Subclasses may override to use a
    * different map implementation. By default, returns a Map from java.util.
    */
-  protected Map newMap(Object old, int size) {
+  public Map newMap(Object old, int size) {
     if (old instanceof Map) {
       Map o = (Map) old;
       o.clear();

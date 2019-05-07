@@ -22,33 +22,25 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Map;
 
+import org.apache.avro.Conversions;
+import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.avro.io.Decoder;
 
 public class Reader {
 
   public static <D> D read(D reuse, Advancer a, Decoder in) throws IOException {
-    Object result = read0(reuse, a, DataFactory.getDefault(), in);
-    LogicalType logicalType = a.reader.getLogicalType();
-    if (logicalType != null) {
-      Conversion<?> conversion = data.getConversionFor(logicalType);
-      if (conversion != null) {
-        result= convert(result, a.reader, logicalType, conversion);
-      }
-    }
+    return (D) read(reuse, a, DataFactory.getDefault(a), in);
   }
 
   public static <D> D read(D reuse, Advancer a, DataFactory df, Decoder in)
     throws IOException
   {
-    return (D) read0(reuse, a, df, in);
-    LogicalType logicalType = a.reader.getLogicalType();
-    if (logicalType != null) {
-      Conversion<?> conversion = data.getConversionFor(logicalType);
-      if (conversion != null) {
-        result= convert(result, a.reader, logicalType, conversion);
-      }
-    }
+    Object result = read0(reuse, a, df, in);
+    if (a.conversion != null)
+      result = Conversions.convertToLogicalType(result, a.reader,
+                                                a.logicalType, a.conversion);
+    return (D) result;
   }
 
   private static Object read0(Object reuse, Advancer a, DataFactory df, Decoder in)
@@ -82,42 +74,42 @@ public class Reader {
     case ENUM:
       return df.newEnum(a.reader.getEnumSymbols().get(in.readEnum()), a.reader);
 
-    case FIXED: {
+    case FIXED:
       int sz = a.reader.getFixedSize();
       byte[] bytes;
       if (reuse instanceof GenericFixed
           && (bytes = ((GenericFixed) reuse).bytes()).length == sz)
         ;
       else {
+        GenericFixed o = df.newFixed(a.reader);
+        reuse = o;
         bytes = new byte[sz];
-        reuse = df.newFixed(bytes, a.reader);
       }
       a.nextFixed(in, bytes);
       return reuse;
-    }
 
     case UNION:
-      return read0(reuse, advancer.getBranchAdvancer(in, advancer.nextIndex(in)), df, in);
+      return read(reuse, a.getBranchAdvancer(in, a.nextIndex(in)), df, in);
 
     case ARRAY: {
-      Advancer.Array c = (Advancer.Array) advancer;
+      Advancer.Array c = (Advancer.Array) a;
       Advancer ec = c.elementAdvancer;
       long i = c.firstChunk(in);
-      reuse = df.newArray(reuse, (int) i, a.reader);
-      GenericData.Array sda = (reuse instanceof GenericData.Array ? (GenericData.Array) reuse : null);
-
-      Collection array = (Collection) reuse;
-      for (; i != 0; i = c.nextChunk(in))
-        for (; i != 0; i--) {
-          Object v = read0(sda != null ? sda.peek() : null, ec, df, in);
-          // TODO -- logical type conversion
-          array.add(v);
-        }
-      return array;
+      Collection sda = df.newArray(reuse, (int) i, a.reader);
+      if (sda instanceof GenericArray) {
+        GenericArray ga = (GenericArray) sda;
+        for (; i != 0; i = c.nextChunk(in))
+          for (; i != 0; i--)
+            ga.add(read(ga.peek(), ec, df, in));
+      } else
+        for (; i != 0; i = c.nextChunk(in))
+          for (; i != 0; i--)
+            sda.add(read(null, ec, df, in));
+      return sda;
     }
 
     case MAP: {
-      Advancer.Map c = (Advancer.Map) advancer;
+      Advancer.Map c = (Advancer.Map) a;
       Advancer kc = c.keyAdvancer;
       Advancer vc = c.valAdvancer;
       long i = c.firstChunk(in);
@@ -125,7 +117,7 @@ public class Reader {
       for (; i != 0; i = c.nextChunk(in))
         for (; i != 0; i--) {
           Object key = kc.nextString(in);
-          Object val = read0(null, vc, df, in);
+          Object val = read(null, vc, df, in);
           map.put(key, val);
         }
       return map;
@@ -133,15 +125,15 @@ public class Reader {
 
     case RECORD: {
       Advancer.Record ra = (Advancer.Record) a;
-      IndexRecord o = df.newRecord(reuse, ra.reader);
       if (reuse instanceof SpecificRecordBase)
-        if (((SpecificRecordBase) reuse).fastRead0(ra, df, in))
+        if (((SpecificRecordBase) reuse).fastRead(ra, df, in))
           return reuse;
-      for (int i = 0; i < a.advancers.length; i++) {
-        int p = a.readerOrder[i].pos();
-        o.put(p, read0(null, a.advancers[i], df, in));
+      IndexedRecord o = df.newRecord(reuse, ra.reader);
+      for (int i = 0; i < ra.advancers.length; i++) {
+        int p = ra.readerOrder[i].pos();
+        o.put(p, read(null, ra.advancers[i], df, in));
       }
-      a.done(in);
+      ra.done(in);
       return o;
     }
 

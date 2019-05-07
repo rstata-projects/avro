@@ -59,8 +59,7 @@ public class SpecificDatumReader2<D> extends GenericDatumReader2<D> {
    */
   public D readRecord(D reuse, Decoder in) throws IOException {
     SpecificRecordBase o = (SpecificRecordBase) reuse;
-    if (o.fastRead(recordAdvancer, in))
-      return (D) o;
+    // WHOLE CLASS NEEDS TO GO
     return (D) readRecord(reuse, recordAdvancer, in);
   }
 }

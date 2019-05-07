@@ -113,9 +113,7 @@ public class GenericDatumReader2<D> implements DatumReader<D> {
     case RECORD: {
       Advancer.Record ra = (Advancer.Record) a;
       reuse = data.newRecord(reuse, ra.reader);
-      if (reuse instanceof SpecificRecordBase)
-        if (((SpecificRecordBase) reuse).fastRead(ra, in))
-          return reuse;
+      // WHOLE CLASS NEEDS TO GO AWAY
       return readRecord(reuse, ra, in);
     }
 
